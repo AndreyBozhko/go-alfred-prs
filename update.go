@@ -59,7 +59,7 @@ func (client *GithubClient) fetchPullRequests(name, role string) (*issuesInfo, e
 	return &issues, nil
 }
 
-func (client *GithubClient) fetchUser() (userInfo, error) {
+func (client *GithubClient) fetchUser() (*userInfo, error) {
 	userUrl := fmt.Sprintf("https://api.%s/user", client.baseUrl)
 
 	var user userInfo
@@ -68,7 +68,7 @@ func (client *GithubClient) fetchUser() (userInfo, error) {
 		return nil, err
 	}
 
-	return user, nil
+	return &user, nil
 }
 
 func deduplicateAndSort(prs []pullRequestInfo) []pullRequestInfo {
