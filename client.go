@@ -1,19 +1,20 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 )
 
 type GithubClient struct {
-	token string
+	baseUrl, token string
 }
 
-func (client *GithubClient) doRequest(url string) ([]byte, error) {
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+func (client *GithubClient) fetchResourceAsJson(resource string, data interface{}) error {
+	req, err := http.NewRequest(http.MethodGet, resource, nil)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", client.token))
@@ -21,21 +22,24 @@ func (client *GithubClient) doRequest(url string) ([]byte, error) {
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	if resp.StatusCode > 200 {
-		return nil, fmt.Errorf("received status %d", resp.StatusCode)
+	defer closeOrPanic(resp.Body)
+
+	if resp.StatusCode > 299 {
+		return fmt.Errorf("received status %d", resp.StatusCode)
 	}
-	defer func(body io.Closer) {
-		err := body.Close()
-		if err != nil {
-			panic(err)
-		}
-	}(resp.Body)
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return body, nil
+
+	return json.Unmarshal(body, &data)
+}
+
+func closeOrPanic(body io.Closer) {
+	if err := body.Close(); err != nil {
+		panic(err)
+	}
 }

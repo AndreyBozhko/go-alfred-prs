@@ -1,9 +1,9 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/url"
+	"sort"
 	"strings"
 	"time"
 )
@@ -13,8 +13,9 @@ type userInfo struct {
 }
 
 type pullRequestInfo struct {
-	HtmlUrl   string    `json:"html_url"`
+	Id        int       `json:"id"`
 	Number    int       `json:"number"`
+	HtmlUrl   string    `json:"html_url"`
 	Title     string    `json:"title"`
 	UpdatedAt time.Time `json:"updated_at"`
 	User      userInfo  `json:"user"`
@@ -24,57 +25,65 @@ type issuesInfo struct {
 	Items []pullRequestInfo `json:"items"`
 }
 
+func (issues issuesInfo) Len() int {
+	return len(issues.Items)
+}
+
+func (issues issuesInfo) Less(i, j int) bool {
+	return issues.Items[i].UpdatedAt.After(issues.Items[j].UpdatedAt)
+}
+
+func (issues issuesInfo) Swap(i, j int) {
+	issues.Items[i], issues.Items[j] = issues.Items[j], issues.Items[i]
+}
+
 func (pr *pullRequestInfo) Project() string {
-	if project, _, ok := strings.Cut(pr.HtmlUrl, "/pull"); !ok {
-		return ""
-	} else {
-		return project
-	}
+	project := pr.HtmlUrl
+
+	project, _, _ = strings.Cut(project, "/pull")
+	_, project, _ = strings.Cut(project, ".com/")
+
+	return project
 }
 
 func (client *GithubClient) fetchPullRequests(name, role string) (*issuesInfo, error) {
 	query := url.QueryEscape(fmt.Sprintf("type:pr is:open %s:%s", role, name))
-	url1 := "https://api.github.com/search/issues?q=%s"
-
-	body, err := client.doRequest(fmt.Sprintf(url1, query))
-	if err != nil {
-		return nil, err
-	}
+	resource := fmt.Sprintf("https://api.%s/search/issues?q=%s", client.baseUrl, query)
 
 	var issues issuesInfo
-	if err = json.Unmarshal(body, &issues); err != nil {
+	err := client.fetchResourceAsJson(resource, &issues)
+	if err != nil {
 		return nil, err
 	}
 
 	return &issues, nil
 }
 
-func (client *GithubClient) getUserName() ([]byte, error) {
-	userUrl := "https://api.github.com/user"
-
-	body, err := client.doRequest(userUrl)
-	if err != nil {
-		return nil, err
-	}
+func (client *GithubClient) fetchUser() ([]byte, error) {
+	userUrl := fmt.Sprintf("https://api.%s/user", client.baseUrl)
 
 	var user userInfo
-	if err = json.Unmarshal(body, &user); err != nil {
+	err := client.fetchResourceAsJson(userUrl, &user)
+	if err != nil {
 		return nil, err
 	}
 
 	return []byte(user.Login), nil
 }
 
-func deduplicate(prs []pullRequestInfo) []pullRequestInfo {
+func deduplicateAndSort(prs []pullRequestInfo) []pullRequestInfo {
+	var i issuesInfo
+
 	seen := make(map[string]bool)
-	rslt := make([]pullRequestInfo, 0)
 	for _, item := range prs {
 		if _, ok := seen[item.HtmlUrl]; !ok {
 			seen[item.HtmlUrl] = true
-			rslt = append(rslt, item)
+			i.Items = append(i.Items, item)
 		}
 	}
-	return rslt
+	sort.Sort(i)
+
+	return i.Items
 }
 
 func (wf *GithubWorkflow) FetchPulls() error {
@@ -83,10 +92,10 @@ func (wf *GithubWorkflow) FetchPulls() error {
 		return err
 	}
 
-	client := GithubClient{token}
+	client := GithubClient{"github.com", token}
 
-	name, err := wf.Cache.LoadOrStore(userNameKey, 6*time.Hour, func() ([]byte, error) {
-		return client.getUserName()
+	name, err := wf.Cache.LoadOrStore(userNameKey, time.Hour, func() ([]byte, error) {
+		return client.fetchUser()
 	})
 	if err != nil {
 		return err
@@ -101,7 +110,7 @@ func (wf *GithubWorkflow) FetchPulls() error {
 		prs = append(prs, issues.Items...)
 	}
 
-	if err = wf.Cache.StoreJSON(pullRequestsKey, deduplicate(prs)); err != nil {
+	if err = wf.Cache.StoreJSON(pullRequestsKey, deduplicateAndSort(prs)); err != nil {
 		return err
 	}
 

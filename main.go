@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"sort"
 
 	aw "github.com/deanishe/awgo"
 	kc "github.com/deanishe/awgo/keychain"
@@ -48,9 +47,6 @@ func (wf *GithubWorkflow) DisplayPulls() error {
 	if err = wf.Cache.LoadJSON(pullRequestsKey, &data); err != nil {
 		return err
 	}
-	sort.Slice(data, func(i, j int) bool {
-		return data[i].UpdatedAt.After(data[j].UpdatedAt)
-	})
 
 	for _, pr := range data {
 		wf.NewItem(pr.Title).
@@ -80,7 +76,7 @@ func run() error {
 			return errMissingArgs
 		}
 		return wf.SetToken(args[1])
-	case "fetch":
+	case "display":
 		return wf.DisplayPulls()
 	case "update":
 		return wf.FetchPulls()
