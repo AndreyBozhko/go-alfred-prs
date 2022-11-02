@@ -85,7 +85,8 @@ func (wf *GithubWorkflow) DisplayPRs() error {
 		var reviewState string
 		var reviews []github.PullRequestReview
 
-		if err = wf.Cache.LoadJSON(strconv.FormatInt(*pr.ID, 10), &reviews); err != nil {
+		uniqueKey := strconv.FormatInt(*pr.ID, 10)
+		if err = wf.Cache.LoadJSON(uniqueKey, &reviews); err != nil {
 			log.Printf("failed to load reviews for PR %d, error: %s", *pr.ID, err)
 		} else {
 			reviewState = constructDisplayState(reviews)
@@ -122,10 +123,10 @@ func (wf *GithubWorkflow) FetchPRStatus() error {
 	}
 
 	var wg sync.WaitGroup
-	wg.Add(len(data))
 	defer wg.Wait()
 
 	// TODO FIXME invalidate cache
+	wg.Add(len(data))
 	for _, pr := range data {
 		go func(p github.Issue) {
 			defer wg.Done()
