@@ -22,3 +22,7 @@ go.work
 .env
 .tmp/
 .devcontainer/
+
+.gitconfig
+.ssh/
+main
