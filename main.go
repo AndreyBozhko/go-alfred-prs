@@ -3,7 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
-        "sort"
+	"sort"
 
 	aw "github.com/deanishe/awgo"
 	kc "github.com/deanishe/awgo/keychain"
@@ -11,8 +11,8 @@ import (
 
 const (
 	ghAuthTokenKey  = "gh-auth-token"
-	userNameKey     = "username"
-	pullRequestsKey = "pull-requests"
+	userNameKey     = "gh-user-info"
+	pullRequestsKey = "gh-pull-requests"
 )
 
 type GithubWorkflow struct {
@@ -26,12 +26,12 @@ func (wf *GithubWorkflow) Token() (string, error) {
 var wf *GithubWorkflow
 
 var (
-	missingArgsError = errors.New("wrong number of arguments passed")
-	unknownCmdError  = errors.New("unknown command")
+	errMissingArgs = errors.New("wrong number of arguments passed")
+	errUnknownCmd  = errors.New("unknown command")
 )
 
 func init() {
-	wf = &GithubWorkflow{}
+	wf = &GithubWorkflow{*aw.New()}
 }
 
 func (wf *GithubWorkflow) doAuth(passwd string) error {
@@ -69,13 +69,13 @@ func run() error {
 	args := wf.Args()
 
 	if len(args) == 0 {
-		return missingArgsError
+		return errMissingArgs
 	}
 
 	switch args[0] {
 	case "auth":
 		if len(args) < 2 {
-			return missingArgsError
+			return errMissingArgs
 		}
 		return wf.doAuth(args[1])
 	case "list":
@@ -83,23 +83,27 @@ func run() error {
 	case "update":
 		return wf.doUpdate()
 	default:
-		return unknownCmdError
+		return errUnknownCmd
+	}
+}
+
+func (wf *GithubWorkflow) HandleError(err error) {
+	if err == kc.ErrNotFound {
+		wf.Feedback.Clear()
+		wf.NewItem("No API key set").
+			Subtitle("Please use ghpr-auth to set your GitHub personal token").
+			Arg("https://github.com/settings/tokens/new").
+			Valid(true).
+			Icon(aw.IconWarning)
+	} else {
+		wf.FatalError(err)
 	}
 }
 
 func main() {
 	wf.Run(func() {
 		if err := run(); err != nil {
-			if err == kc.ErrNotFound {
-				wf.Feedback.Clear()
-				wf.NewItem("No API key set").
-					Subtitle("Please use ghpr-auth to set your GitHub personal token").
-					Arg("https://github.com/settings/tokens/new").
-					Valid(false).
-					Icon(aw.IconWarning)
-			} else {
-				wf.FatalError(err)
-			}
+			wf.HandleError(err)
 		}
 		wf.SendFeedback()
 	})
