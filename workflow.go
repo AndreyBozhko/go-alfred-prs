@@ -4,7 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"regexp"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
 
 	aw "github.com/deanishe/awgo"
 	kc "github.com/deanishe/awgo/keychain"
@@ -62,7 +67,7 @@ func (wf *GithubWorkflow) Token() (string, error) {
 	return wf.Keychain.Get(ghAuthTokenKey)
 }
 
-func (wf *GithubWorkflow) DisplayPulls() error {
+func (wf *GithubWorkflow) DisplayPRs() error {
 	_, err := wf.Token()
 	if err != nil {
 		return err
@@ -74,8 +79,19 @@ func (wf *GithubWorkflow) DisplayPulls() error {
 	}
 
 	for _, pr := range data {
+
+		var reviewState string
+		var reviews []github.PullRequestReview
+
+		if err = wf.Cache.LoadJSON(strconv.FormatInt(*pr.ID, 10), &reviews); err != nil {
+			log.Printf("failed to load reviews for PR %d, error: %s", *pr.ID, err)
+		} else {
+			reviewState = constructDisplayState(reviews)
+		}
+
 		wf.NewItem(*pr.Title).
-			Subtitle(fmt.Sprintf("%s#%d by %s, %s",
+			Subtitle(fmt.Sprintf("%s%s#%d by %s, %s",
+				reviewState,
 				extractProject(*pr.HTMLURL),
 				*pr.Number,
 				*pr.User.Login,
@@ -84,6 +100,51 @@ func (wf *GithubWorkflow) DisplayPulls() error {
 			Valid(true)
 	}
 	wf.WarnEmpty("No pull requests to show :(", "")
+
+	return nil
+}
+
+func (wf *GithubWorkflow) FetchPRStatus() error {
+	token, err := wf.Token()
+	if err != nil {
+		return err
+	}
+
+	var data []github.Issue
+	if err = wf.Cache.LoadJSON(ghPullRequestsKey, &data); err != nil {
+		return err
+	}
+
+	client, err := newGithubClient(wf.ctx, wf.BaseUrl(), token)
+	if err != nil {
+		return err
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(len(data))
+	defer wg.Wait()
+
+	// TODO FIXME invalidate cache
+	for _, pr := range data {
+		go func(p github.Issue) {
+			defer wg.Done()
+
+			project := extractProject(*p.HTMLURL)
+			owner, repo, _ := strings.Cut(project, "/")
+
+			uniqueKey := strconv.FormatInt(*p.ID, 10)
+
+			var ignored []github.PullRequestReview
+			err := wf.Cache.LoadOrStoreJSON(uniqueKey, time.Since(*p.UpdatedAt), func() (interface{}, error) {
+				reviews, _, err := client.PullRequests.ListReviews(wf.ctx, owner, repo, *p.Number, nil)
+				return reviews, err
+			}, &ignored)
+
+			if err != nil {
+				panic(err)
+			}
+		}(pr)
+	}
 
 	return nil
 }
@@ -107,9 +168,11 @@ func run() error {
 		}
 		return wf.SetBaseUrl(args[1])
 	case "display":
-		return wf.DisplayPulls()
+		return wf.DisplayPRs()
 	case "update":
-		return wf.FetchPulls()
+		return wf.FetchPRs()
+	case "update_status":
+		return wf.FetchPRStatus()
 	default:
 		return errUnknownCmd
 	}

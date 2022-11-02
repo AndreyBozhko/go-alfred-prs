@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
+	"os"
+	"os/exec"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -38,6 +40,27 @@ func deduplicateAndSort(prs []*github.Issue) []*github.Issue {
 	return rslt
 }
 
+func constructDisplayState(status []github.PullRequestReview) string {
+	var rslt string
+	seen := make(map[string]github.PullRequestReview)
+	for _, item := range status {
+		if v, ok := seen[*item.User.Login]; !ok || item.SubmittedAt.After(*v.SubmittedAt) {
+			seen[*item.User.Login] = item
+		}
+	}
+
+	for _, v := range seen {
+		if strings.ToLower(*v.State) == "approved" {
+			rslt += "✅"
+		}
+	}
+
+	if rslt == "" {
+		return ""
+	}
+	return rslt + " "
+}
+
 func newGithubClient(ctx context.Context, url, token string) (*github.Client, error) {
 	httpclient := oauth2.NewClient(ctx, oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: token},
@@ -49,7 +72,7 @@ func newGithubClient(ctx context.Context, url, token string) (*github.Client, er
 	return github.NewEnterpriseClient(url, url, httpclient)
 }
 
-func (wf *GithubWorkflow) FetchPulls() error {
+func (wf *GithubWorkflow) FetchPRs() error {
 	token, err := wf.Token()
 	if err != nil {
 		return err
@@ -81,23 +104,9 @@ func (wf *GithubWorkflow) FetchPulls() error {
 
 	prs = deduplicateAndSort(prs)
 
-	// TODO FIXME invalidate cache
-	// TODO FIXME execute concurrently or run in background
-	for _, pr := range prs {
-		project := extractProject(*pr.HTMLURL)
-		owner, repo, _ := strings.Cut(project, "/")
-
-		uniqueKey := strconv.FormatInt(*pr.ID, 10)
-
-		var ignored []github.PullRequestReview
-		err := wf.Cache.LoadOrStoreJSON(uniqueKey, time.Since(*pr.UpdatedAt), func() (interface{}, error) {
-			reviews, _, err := client.PullRequests.ListReviews(wf.ctx, owner, repo, *pr.Number, nil)
-			return reviews, err
-		}, &ignored)
-
-		if err != nil {
-			return err
-		}
+	if !wf.IsRunning("update_status") {
+		err = wf.RunInBackground("update_status", exec.Command(os.Args[0], "update_status"))
+		log.Println("Error with starting background task to refresh status of PRs:", err)
 	}
 
 	return wf.Cache.StoreJSON(ghPullRequestsKey, prs)
