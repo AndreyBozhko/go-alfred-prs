@@ -21,8 +21,9 @@ var (
 )
 
 var (
-	errMissingArgs = errors.New("wrong number of arguments passed")
-	errUnknownCmd  = errors.New("unknown command")
+	errMissingArgs     = errors.New("wrong number of arguments passed")
+	errPatternMismatch = fmt.Errorf("url does not match pattern %s", gitUrlPattern)
+	errUnknownCmd      = errors.New("unknown command")
 )
 
 type GithubWorkflow struct {
@@ -44,7 +45,7 @@ func (wf *GithubWorkflow) BaseUrl() string {
 
 func (wf *GithubWorkflow) SetBaseUrl(url string) error {
 	if ok := gitUrlPattern.MatchString(url); !ok {
-		return fmt.Errorf("url does not match pattern %s", gitUrlPattern)
+		return errPatternMismatch
 	}
 	return wf.Data.Store(ghBaseUrlKey, []byte(url))
 }
@@ -78,7 +79,7 @@ func (wf *GithubWorkflow) DisplayPulls() error {
 			Arg(pr.HtmlUrl).
 			Valid(true)
 	}
-	wf.WarnEmpty("No PRs to display :(", "")
+	wf.WarnEmpty("No pull requests to show :(", "")
 
 	return nil
 }
@@ -112,12 +113,19 @@ func run() error {
 
 func (wf *GithubWorkflow) HandleError(err error) {
 	if err == kc.ErrNotFound {
-		wf.Feedback.Clear()
-		wf.NewItem("No API key set").
-			Subtitle("Please use ghpr-auth to set your GitHub personal token").
-			Arg(fmt.Sprintf("https://%s/settings/tokens/new", wf.BaseUrl())).
-			Valid(true).
-			Icon(aw.IconWarning)
+		if wf.Feedback.IsEmpty() {
+			wf.NewItem("No API key set").
+				Subtitle("Please use ghpr-auth to set your GitHub personal token").
+				Valid(false).
+				Icon(aw.IconError)
+
+			tokenUrl := fmt.Sprintf("https://%s/settings/tokens", wf.BaseUrl())
+			wf.NewItem("Generate new token on GitHub").
+				Subtitle(tokenUrl).
+				Arg(tokenUrl).
+				Valid(true).
+				Icon(aw.IconWeb)
+		}
 	} else {
 		wf.FatalError(err)
 	}
