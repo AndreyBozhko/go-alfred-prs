@@ -77,7 +77,7 @@ func deduplicate(prs []pullRequestInfo) []pullRequestInfo {
 	return rslt
 }
 
-func (wf *GithubWorkflow) doUpdate() error {
+func (wf *GithubWorkflow) FetchPulls() error {
 	token, err := wf.Token()
 	if err != nil {
 		return err

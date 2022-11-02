@@ -19,10 +19,6 @@ type GithubWorkflow struct {
 	aw.Workflow
 }
 
-func (wf *GithubWorkflow) Token() (string, error) {
-	return wf.Keychain.Get(ghAuthTokenKey)
-}
-
 var wf *GithubWorkflow
 
 var (
@@ -34,11 +30,15 @@ func init() {
 	wf = &GithubWorkflow{*aw.New()}
 }
 
-func (wf *GithubWorkflow) doAuth(passwd string) error {
+func (wf *GithubWorkflow) SetToken(passwd string) error {
 	return wf.Keychain.Set(ghAuthTokenKey, passwd)
 }
 
-func (wf *GithubWorkflow) doList() error {
+func (wf *GithubWorkflow) Token() (string, error) {
+	return wf.Keychain.Get(ghAuthTokenKey)
+}
+
+func (wf *GithubWorkflow) DisplayPulls() error {
 	_, err := wf.Token()
 	if err != nil {
 		return err
@@ -54,13 +54,15 @@ func (wf *GithubWorkflow) doList() error {
 
 	for _, pr := range data {
 		wf.NewItem(pr.Title).
-			Subtitle(fmt.Sprintf("%s by %s, %s",
+			Subtitle(fmt.Sprintf("%s#%d by %s, %s",
 				pr.Project(),
+				pr.Number,
 				pr.User.Login,
 				pr.UpdatedAt.Format("02-Jan-2006 15:04"))).
 			Arg(pr.HtmlUrl).
 			Valid(true)
 	}
+	wf.WarnEmpty("No PRs to display :(", "")
 
 	return nil
 }
@@ -77,11 +79,11 @@ func run() error {
 		if len(args) < 2 {
 			return errMissingArgs
 		}
-		return wf.doAuth(args[1])
-	case "list":
-		return wf.doList()
+		return wf.SetToken(args[1])
+	case "fetch":
+		return wf.DisplayPulls()
 	case "update":
-		return wf.doUpdate()
+		return wf.FetchPulls()
 	default:
 		return errUnknownCmd
 	}
