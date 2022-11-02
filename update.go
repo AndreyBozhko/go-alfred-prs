@@ -95,7 +95,7 @@ func (wf *GithubWorkflow) FetchPulls() error {
 	client := GithubClient{baseUrl: wf.BaseUrl(), token: token}
 
 	var user userInfo
-	err = wf.Cache.LoadOrStoreJSON(userNameKey, time.Hour, func() (interface{}, error) {
+	err = wf.Cache.LoadOrStoreJSON(ghUserInfoKey, time.Hour, func() (interface{}, error) {
 		return client.fetchUser()
 	}, &user)
 	if err != nil {
@@ -111,5 +111,5 @@ func (wf *GithubWorkflow) FetchPulls() error {
 		prs = append(prs, issues.Items...)
 	}
 
-	return wf.Cache.StoreJSON(pullRequestsKey, deduplicateAndSort(prs))
+	return wf.Cache.StoreJSON(ghPullRequestsKey, deduplicateAndSort(prs))
 }

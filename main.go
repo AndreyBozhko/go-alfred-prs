@@ -9,9 +9,10 @@ import (
 )
 
 const (
-	ghAuthTokenKey  = "gh-auth-token"
-	userNameKey     = "gh-user-info"
-	pullRequestsKey = "gh-pull-requests"
+	ghAuthTokenKey    = "gh-auth-token"
+	ghBaseUrlKey      = "gh-base-url"
+	ghUserInfoKey     = "gh-user-info"
+	ghPullRequestsKey = "gh-pull-requests"
 )
 
 var (
@@ -30,7 +31,7 @@ func init() {
 }
 
 func (wf *GithubWorkflow) BaseUrl() string {
-	if base, err := wf.Data.Load("gh-base-url"); err == nil {
+	if base, err := wf.Data.Load(ghBaseUrlKey); err == nil {
 		return string(base)
 	}
 	return "github.com"
@@ -51,7 +52,7 @@ func (wf *GithubWorkflow) DisplayPulls() error {
 	}
 
 	var data []pullRequestInfo
-	if err = wf.Cache.LoadJSON(pullRequestsKey, &data); err != nil {
+	if err = wf.Cache.LoadJSON(ghPullRequestsKey, &data); err != nil {
 		return err
 	}
 
