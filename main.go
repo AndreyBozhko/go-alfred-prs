@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"regexp"
 
 	aw "github.com/deanishe/awgo"
 	kc "github.com/deanishe/awgo/keychain"
@@ -13,6 +14,10 @@ const (
 	ghBaseUrlKey      = "gh-base-url"
 	ghUserInfoKey     = "gh-user-info"
 	ghPullRequestsKey = "gh-pull-requests"
+)
+
+var (
+	gitUrlPattern = regexp.MustCompile("^github(.*)?.com$")
 )
 
 var (
@@ -35,6 +40,13 @@ func (wf *GithubWorkflow) BaseUrl() string {
 		return string(base)
 	}
 	return "github.com"
+}
+
+func (wf *GithubWorkflow) SetBaseUrl(url string) error {
+	if ok := gitUrlPattern.MatchString(url); !ok {
+		return fmt.Errorf("url does not match pattern %s", gitUrlPattern)
+	}
+	return wf.Data.Store(ghBaseUrlKey, []byte(url))
 }
 
 func (wf *GithubWorkflow) SetToken(passwd string) error {
@@ -84,6 +96,11 @@ func run() error {
 			return errMissingArgs
 		}
 		return wf.SetToken(args[1])
+	case "base_url":
+		if len(args) < 2 {
+			return errMissingArgs
+		}
+		return wf.SetBaseUrl(args[1])
 	case "display":
 		return wf.DisplayPulls()
 	case "update":
@@ -98,7 +115,7 @@ func (wf *GithubWorkflow) HandleError(err error) {
 		wf.Feedback.Clear()
 		wf.NewItem("No API key set").
 			Subtitle("Please use ghpr-auth to set your GitHub personal token").
-			Arg("https://github.com/settings/tokens/new").
+			Arg(fmt.Sprintf("https://%s/settings/tokens/new", wf.BaseUrl())).
 			Valid(true).
 			Icon(aw.IconWarning)
 	} else {
