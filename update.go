@@ -92,7 +92,7 @@ func (wf *GithubWorkflow) FetchPulls() error {
 		return err
 	}
 
-	client := GithubClient{"github.com", token}
+	client := GithubClient{baseUrl: wf.BaseUrl(), token: token}
 
 	var user userInfo
 	err = wf.Cache.LoadOrStoreJSON(userNameKey, time.Hour, func() (interface{}, error) {

@@ -14,19 +14,26 @@ const (
 	pullRequestsKey = "gh-pull-requests"
 )
 
+var (
+	errMissingArgs = errors.New("wrong number of arguments passed")
+	errUnknownCmd  = errors.New("unknown command")
+)
+
 type GithubWorkflow struct {
 	aw.Workflow
 }
 
 var wf *GithubWorkflow
 
-var (
-	errMissingArgs = errors.New("wrong number of arguments passed")
-	errUnknownCmd  = errors.New("unknown command")
-)
-
 func init() {
 	wf = &GithubWorkflow{*aw.New()}
+}
+
+func (wf *GithubWorkflow) BaseUrl() string {
+	if base, err := wf.Data.Load("gh-base-url"); err == nil {
+		return string(base)
+	}
+	return "github.com"
 }
 
 func (wf *GithubWorkflow) SetToken(passwd string) error {
