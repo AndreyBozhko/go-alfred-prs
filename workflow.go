@@ -76,7 +76,7 @@ func (wf *GithubWorkflow) DisplayPulls() error {
 	for _, pr := range data {
 		wf.NewItem(*pr.Title).
 			Subtitle(fmt.Sprintf("%s#%d by %s, %s",
-				extractProject(pr),
+				extractProject(*pr.HTMLURL),
 				*pr.Number,
 				*pr.User.Login,
 				pr.UpdatedAt.Format("02-Jan-2006 15:04"))).

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -11,8 +12,8 @@ import (
 	"golang.org/x/oauth2"
 )
 
-func extractProject(pr github.Issue) string {
-	project := *pr.HTMLURL
+func extractProject(htmlUrl string) string {
+	project := htmlUrl
 
 	project, _, _ = strings.Cut(project, "/pull")
 	_, project, _ = strings.Cut(project, ".com/")
@@ -78,5 +79,26 @@ func (wf *GithubWorkflow) FetchPulls() error {
 		prs = append(prs, issues.Issues...)
 	}
 
-	return wf.Cache.StoreJSON(ghPullRequestsKey, deduplicateAndSort(prs))
+	prs = deduplicateAndSort(prs)
+
+	// TODO FIXME invalidate cache
+	// TODO FIXME execute concurrently or run in background
+	for _, pr := range prs {
+		project := extractProject(*pr.HTMLURL)
+		owner, repo, _ := strings.Cut(project, "/")
+
+		uniqueKey := strconv.FormatInt(*pr.ID, 10)
+
+		var ignored []github.PullRequestReview
+		err := wf.Cache.LoadOrStoreJSON(uniqueKey, time.Since(*pr.UpdatedAt), func() (interface{}, error) {
+			reviews, _, err := client.PullRequests.ListReviews(wf.ctx, owner, repo, *pr.Number, nil)
+			return reviews, err
+		}, &ignored)
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return wf.Cache.StoreJSON(ghPullRequestsKey, prs)
 }
