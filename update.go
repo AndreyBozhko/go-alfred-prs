@@ -59,7 +59,7 @@ func (client *GithubClient) fetchPullRequests(name, role string) (*issuesInfo, e
 	return &issues, nil
 }
 
-func (client *GithubClient) fetchUser() ([]byte, error) {
+func (client *GithubClient) fetchUser() (userInfo, error) {
 	userUrl := fmt.Sprintf("https://api.%s/user", client.baseUrl)
 
 	var user userInfo
@@ -68,7 +68,7 @@ func (client *GithubClient) fetchUser() ([]byte, error) {
 		return nil, err
 	}
 
-	return []byte(user.Login), nil
+	return user, nil
 }
 
 func deduplicateAndSort(prs []pullRequestInfo) []pullRequestInfo {
@@ -94,25 +94,22 @@ func (wf *GithubWorkflow) FetchPulls() error {
 
 	client := GithubClient{"github.com", token}
 
-	name, err := wf.Cache.LoadOrStore(userNameKey, time.Hour, func() ([]byte, error) {
+	var user userInfo
+	err = wf.Cache.LoadOrStoreJSON(userNameKey, time.Hour, func() (interface{}, error) {
 		return client.fetchUser()
-	})
+	}, &user)
 	if err != nil {
 		return err
 	}
 
 	var prs []pullRequestInfo
 	for _, role := range []string{"author", "review-requested", "mentions", "assignee"} {
-		issues, err := client.fetchPullRequests(string(name), role)
+		issues, err := client.fetchPullRequests(user.Login, role)
 		if err != nil {
 			return err
 		}
 		prs = append(prs, issues.Items...)
 	}
 
-	if err = wf.Cache.StoreJSON(pullRequestsKey, deduplicateAndSort(prs)); err != nil {
-		return err
-	}
-
-	return nil
+	return wf.Cache.StoreJSON(pullRequestsKey, deduplicateAndSort(prs))
 }
