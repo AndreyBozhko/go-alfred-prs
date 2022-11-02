@@ -25,4 +25,4 @@ go.work
 
 .gitconfig
 .ssh/
-main
+workflow

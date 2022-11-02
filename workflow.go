@@ -1,12 +1,14 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"regexp"
 
 	aw "github.com/deanishe/awgo"
 	kc "github.com/deanishe/awgo/keychain"
+	"github.com/google/go-github/v48/github"
 )
 
 const (
@@ -17,7 +19,7 @@ const (
 )
 
 var (
-	gitUrlPattern = regexp.MustCompile("^github(.*)?.com$")
+	gitUrlPattern = regexp.MustCompile("^https://(.*)?.com$")
 )
 
 var (
@@ -28,19 +30,21 @@ var (
 
 type GithubWorkflow struct {
 	aw.Workflow
+
+	ctx context.Context
 }
 
 var wf *GithubWorkflow
 
 func init() {
-	wf = &GithubWorkflow{*aw.New()}
+	wf = &GithubWorkflow{*aw.New(), context.Background()}
 }
 
 func (wf *GithubWorkflow) BaseUrl() string {
 	if base, err := wf.Data.Load(ghBaseUrlKey); err == nil {
 		return string(base)
 	}
-	return "github.com"
+	return ""
 }
 
 func (wf *GithubWorkflow) SetBaseUrl(url string) error {
@@ -50,8 +54,8 @@ func (wf *GithubWorkflow) SetBaseUrl(url string) error {
 	return wf.Data.Store(ghBaseUrlKey, []byte(url))
 }
 
-func (wf *GithubWorkflow) SetToken(passwd string) error {
-	return wf.Keychain.Set(ghAuthTokenKey, passwd)
+func (wf *GithubWorkflow) SetToken(token string) error {
+	return wf.Keychain.Set(ghAuthTokenKey, token)
 }
 
 func (wf *GithubWorkflow) Token() (string, error) {
@@ -64,19 +68,19 @@ func (wf *GithubWorkflow) DisplayPulls() error {
 		return err
 	}
 
-	var data []pullRequestInfo
+	var data []github.Issue
 	if err = wf.Cache.LoadJSON(ghPullRequestsKey, &data); err != nil {
 		return err
 	}
 
 	for _, pr := range data {
-		wf.NewItem(pr.Title).
+		wf.NewItem(*pr.Title).
 			Subtitle(fmt.Sprintf("%s#%d by %s, %s",
-				pr.Project(),
-				pr.Number,
-				pr.User.Login,
+				extractProject(pr),
+				*pr.Number,
+				*pr.User.Login,
 				pr.UpdatedAt.Format("02-Jan-2006 15:04"))).
-			Arg(pr.HtmlUrl).
+			Arg(*pr.HTMLURL).
 			Valid(true)
 	}
 	wf.WarnEmpty("No pull requests to show :(", "")
@@ -113,19 +117,17 @@ func run() error {
 
 func (wf *GithubWorkflow) HandleError(err error) {
 	if err == kc.ErrNotFound {
-		if wf.Feedback.IsEmpty() {
-			wf.NewItem("No API key set").
-				Subtitle("Please use ghpr-auth to set your GitHub personal token").
-				Valid(false).
-				Icon(aw.IconError)
+		wf.NewItem("No API key set").
+			Subtitle("Please use ghpr-auth to set your GitHub personal token").
+			Valid(false).
+			Icon(aw.IconError)
 
-			tokenUrl := fmt.Sprintf("https://%s/settings/tokens", wf.BaseUrl())
-			wf.NewItem("Generate new token on GitHub").
-				Subtitle(tokenUrl).
-				Arg(tokenUrl).
-				Valid(true).
-				Icon(aw.IconWeb)
-		}
+		tokenUrl := wf.BaseUrl() + "/settings/tokens"
+		wf.NewItem("Generate new token on GitHub").
+			Subtitle(tokenUrl).
+			Arg(tokenUrl).
+			Valid(true).
+			Icon(aw.IconWeb)
 	} else {
 		wf.FatalError(err)
 	}
