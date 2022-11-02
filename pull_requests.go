@@ -58,7 +58,7 @@ func constructDisplayState(status []github.PullRequestReview) string {
 	if rslt == "" {
 		return ""
 	}
-	return rslt + " "
+	return " " + rslt
 }
 
 func newGithubClient(ctx context.Context, url, token string) (*github.Client, error) {
@@ -106,7 +106,7 @@ func (wf *GithubWorkflow) FetchPRs() error {
 
 	if !wf.IsRunning("update_status") {
 		err = wf.RunInBackground("update_status", exec.Command(os.Args[0], "update_status"))
-		log.Println("Error with starting background task to refresh status of PRs:", err)
+		log.Println("Failed to run background task 'update_status':", err)
 	}
 
 	return wf.Cache.StoreJSON(ghPullRequestsKey, prs)

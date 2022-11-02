@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os"
+	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
@@ -89,9 +91,8 @@ func (wf *GithubWorkflow) DisplayPRs() error {
 			reviewState = constructDisplayState(reviews)
 		}
 
-		wf.NewItem(*pr.Title).
-			Subtitle(fmt.Sprintf("%s%s#%d by %s, %s",
-				reviewState,
+		wf.NewItem(*pr.Title + reviewState).
+			Subtitle(fmt.Sprintf("%s#%d by %s, %s",
 				extractProject(*pr.HTMLURL),
 				*pr.Number,
 				*pr.User.Login,
@@ -191,6 +192,15 @@ func (wf *GithubWorkflow) HandleError(err error) {
 			Arg(tokenUrl).
 			Valid(true).
 			Icon(aw.IconWeb)
+	} else if errors.Is(err, os.ErrNotExist) {
+		if !wf.IsRunning("update") {
+			if err1 := wf.RunInBackground("update", exec.Command(os.Args[0], "update")); err1 != nil {
+				log.Println("Failed to run background task 'update_status':", err1)
+			}
+		}
+		wf.NewItem("Loading...").
+			Valid(false)
+		wf.Feedback.Rerun(3.0)
 	} else {
 		wf.FatalError(err)
 	}
