@@ -121,6 +121,8 @@ func (wf *GithubWorkflow) DisplayPRs(allowUpdates bool) error {
 		return errShowNoResults
 	}
 
+	zone, _ := time.LoadLocation("Local")
+
 	for _, pr := range data {
 
 		var reviewState string
@@ -138,7 +140,7 @@ func (wf *GithubWorkflow) DisplayPRs(allowUpdates bool) error {
 				parseRepo(*pr.HTMLURL),
 				*pr.Number,
 				*pr.User.Login,
-				pr.UpdatedAt.Format("02-Jan-2006 15:04"))).
+				pr.UpdatedAt.In(zone).Format("02-Jan-2006 15:04"))).
 			Arg(*pr.HTMLURL).
 			Valid(true)
 	}
