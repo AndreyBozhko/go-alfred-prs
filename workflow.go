@@ -19,10 +19,22 @@ import (
 )
 
 const (
+	cmdAuth         = "auth"
+	cmdBaseUrl      = "base_url"
+	cmdDisplay      = "display"
+	cmdUpdate       = "update"
+	cmdUpdateStatus = "update_status"
+)
+
+const (
 	ghAuthTokenKey    = "gh-auth-token"
 	ghBaseUrlKey      = "gh-base-url"
 	ghUserInfoKey     = "gh-user-info"
 	ghPullRequestsKey = "gh-pull-requests"
+)
+
+const (
+	rerunDelay = 3 * time.Second
 )
 
 var (
@@ -31,7 +43,10 @@ var (
 
 var (
 	errMissingArgs     = errors.New("wrong number of arguments passed")
-	errPatternMismatch = fmt.Errorf("url does not match pattern %s", gitUrlPattern)
+	errPatternMismatch = errors.New("url does not match pattern " + gitUrlPattern.String())
+	errShowNoResults   = errors.New("need to display zero item warning")
+	errTaskRunning     = errors.New("task is already running")
+	errTokenEmpty      = errors.New("token must not be empty")
 	errUnknownCmd      = errors.New("unknown command")
 	errUpdateNeeded    = errors.New("need to refresh pull requests cache")
 )
@@ -63,6 +78,9 @@ func (wf *GithubWorkflow) SetBaseUrl(url string) error {
 }
 
 func (wf *GithubWorkflow) SetToken(token string) error {
+	if token == "" {
+		return errTokenEmpty
+	}
 	return wf.Keychain.Set(ghAuthTokenKey, token)
 }
 
@@ -70,7 +88,17 @@ func (wf *GithubWorkflow) Token() (string, error) {
 	return wf.Keychain.Get(ghAuthTokenKey)
 }
 
-func (wf *GithubWorkflow) DisplayPRs() error {
+func (wf *GithubWorkflow) LaunchBackgroundTask(task string, arg ...string) error {
+	log.Printf("Launching task '%s' in background...", task)
+	if wf.IsRunning(task) {
+		return errTaskRunning
+	}
+
+	cmdArgs := append([]string{task}, arg...)
+	return wf.RunInBackground(task, exec.Command(os.Args[0], cmdArgs...))
+}
+
+func (wf *GithubWorkflow) DisplayPRs(allowUpdates bool) error {
 	_, err := wf.Token()
 	if err != nil {
 		return err
@@ -79,7 +107,11 @@ func (wf *GithubWorkflow) DisplayPRs() error {
 	var data []github.Issue
 	if err = wf.Cache.LoadJSON(ghPullRequestsKey, &data); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return errUpdateNeeded
+			if allowUpdates {
+				return errUpdateNeeded
+			} else {
+				return errShowNoResults
+			}
 		}
 		return err
 	}
@@ -105,7 +137,6 @@ func (wf *GithubWorkflow) DisplayPRs() error {
 			Arg(*pr.HTMLURL).
 			Valid(true)
 	}
-	wf.WarnEmpty("No pull requests to show :(", "")
 
 	return nil
 }
@@ -158,55 +189,59 @@ func (wf *GithubWorkflow) FetchPRStatus() error {
 func run() error {
 	args := wf.Args()
 
-	if len(args) == 0 {
+	if len(args) < 1 {
 		return errMissingArgs
 	}
+	if len(args) == 1 {
+		args = append(args, "")
+	}
 
-	switch args[0] {
-	case "auth":
-		if len(args) < 2 {
-			return errMissingArgs
-		}
-		return wf.SetToken(args[1])
-	case "base_url":
-		if len(args) < 2 {
-			return errMissingArgs
-		}
-		return wf.SetBaseUrl(args[1])
-	case "display":
-		return wf.DisplayPRs()
-	case "update":
+	cmd, arg := args[0], args[1]
+
+	switch cmd {
+	case cmdAuth:
+		return wf.SetToken(arg)
+	case cmdBaseUrl:
+		return wf.SetBaseUrl(arg)
+	case cmdDisplay:
+		allowUpdates := arg == "--allow-updates"
+		return wf.DisplayPRs(allowUpdates)
+	case cmdUpdate:
 		return wf.FetchPRs()
-	case "update_status":
+	case cmdUpdateStatus:
 		return wf.FetchPRStatus()
 	default:
 		return errUnknownCmd
 	}
 }
 
-func (wf *GithubWorkflow) HandleError(err error) {
-	if err == kc.ErrNotFound {
-		wf.NewItem("No API key set").
-			Subtitle("Please use ghpr-auth to set your GitHub personal token").
-			Valid(false).
-			Icon(aw.IconError)
+func (wf *GithubWorkflow) HandleMissingToken() {
+	wf.NewItem("No API key set").
+		Subtitle("Please use ghpr-auth to set your GitHub personal token").
+		Valid(false).
+		Icon(aw.IconError)
 
-		tokenUrl := wf.BaseUrl() + "/settings/tokens"
-		wf.NewItem("Generate new token on GitHub").
-			Subtitle(tokenUrl).
-			Arg(tokenUrl).
-			Valid(true).
-			Icon(aw.IconWeb)
-	} else if err == errUpdateNeeded {
-		if !wf.IsRunning("update") {
-			if err1 := wf.RunInBackground("update", exec.Command(os.Args[0], "update")); err1 != nil {
-				log.Println("Failed to run background task 'update_status':", err1)
-			}
+	tokenUrl := wf.BaseUrl() + "/settings/tokens"
+	wf.NewItem("Generate new token on GitHub").
+		Subtitle(tokenUrl).
+		Arg(tokenUrl).
+		Valid(true).
+		Icon(aw.IconWeb)
+}
+
+func (wf *GithubWorkflow) HandleError(err error) {
+	switch err {
+	case kc.ErrNotFound:
+		wf.HandleMissingToken()
+	case errShowNoResults:
+		wf.WarnEmpty("No pull requests to display :(", "")
+	case errUpdateNeeded:
+		if err1 := wf.LaunchBackgroundTask(cmdUpdate); err1 != nil {
+			log.Println("failed to launch update task:", err1)
 		}
-		wf.NewItem("Loading...").
-			Valid(false)
-		wf.Feedback.Rerun(3.0)
-	} else {
+		wf.NewItem("Loading...").Valid(false)
+		wf.Feedback.Rerun(rerunDelay.Seconds())
+	default:
 		wf.FatalError(err)
 	}
 }

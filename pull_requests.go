@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
-	"os/exec"
 	"sort"
 	"strings"
 	"time"
@@ -102,12 +100,11 @@ func (wf *GithubWorkflow) FetchPRs() error {
 		prs = append(prs, issues.Issues...)
 	}
 
-	prs = deduplicateAndSort(prs)
+	defer func() {
+		if err := wf.LaunchBackgroundTask(cmdUpdateStatus); err != nil {
+			log.Println("failed to launch update task:", err)
+		}
+	}()
 
-	if !wf.IsRunning("update_status") {
-		err = wf.RunInBackground("update_status", exec.Command(os.Args[0], "update_status"))
-		log.Println("Failed to run background task 'update_status':", err)
-	}
-
-	return wf.Cache.StoreJSON(ghPullRequestsKey, prs)
+	return wf.Cache.StoreJSON(ghPullRequestsKey, deduplicateAndSort(prs))
 }
