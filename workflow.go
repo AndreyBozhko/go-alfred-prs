@@ -104,16 +104,21 @@ func (wf *GithubWorkflow) DisplayPRs(allowUpdates bool) error {
 		return err
 	}
 
+	if wf.Cache.Expired(ghPullRequestsKey, time.Hour) {
+		if allowUpdates {
+			return errUpdateNeeded
+		} else {
+			return errShowNoResults
+		}
+	}
+
 	var data []github.Issue
 	if err = wf.Cache.LoadJSON(ghPullRequestsKey, &data); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			if allowUpdates {
-				return errUpdateNeeded
-			} else {
-				return errShowNoResults
-			}
-		}
 		return err
+	}
+
+	if len(data) == 0 {
+		return errShowNoResults
 	}
 
 	for _, pr := range data {

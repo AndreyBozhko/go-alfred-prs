@@ -82,10 +82,14 @@ func (wf *GithubWorkflow) FetchPRs() error {
 	}
 
 	var user github.User
-	err = wf.Cache.LoadOrStoreJSON(ghUserInfoKey, time.Hour, func() (interface{}, error) {
-		u, _, err := client.Users.Get(wf.ctx, "")
-		return u, err
-	}, &user)
+	err = wf.Cache.LoadOrStoreJSON(
+		ghUserInfoKey,
+		time.Hour,
+		func() (interface{}, error) {
+			u, _, err := client.Users.Get(wf.ctx, "")
+			return u, err
+		},
+		&user)
 	if err != nil {
 		return err
 	}
