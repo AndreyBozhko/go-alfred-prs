@@ -172,10 +172,14 @@ func (wf *GithubWorkflow) FetchPRStatus() error {
 			uniqueKey := strconv.FormatInt(*p.ID, 10)
 
 			var ignored []github.PullRequestReview
-			err := wf.Cache.LoadOrStoreJSON(uniqueKey, time.Since(*p.UpdatedAt), func() (interface{}, error) {
-				reviews, _, err := client.PullRequests.ListReviews(wf.ctx, owner, repo, *p.Number, nil)
-				return reviews, err
-			}, &ignored)
+			err := wf.Cache.LoadOrStoreJSON(
+				uniqueKey,
+				time.Since(*p.UpdatedAt),
+				func() (interface{}, error) {
+					reviews, _, err := client.PullRequests.ListReviews(wf.ctx, owner, repo, *p.Number, nil)
+					return reviews, err
+				},
+				&ignored)
 
 			if err != nil {
 				panic(err)
