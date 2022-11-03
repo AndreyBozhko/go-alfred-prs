@@ -33,6 +33,7 @@ var (
 	errMissingArgs     = errors.New("wrong number of arguments passed")
 	errPatternMismatch = fmt.Errorf("url does not match pattern %s", gitUrlPattern)
 	errUnknownCmd      = errors.New("unknown command")
+	errUpdateNeeded    = errors.New("need to refresh pull requests cache")
 )
 
 type GithubWorkflow struct {
@@ -77,6 +78,9 @@ func (wf *GithubWorkflow) DisplayPRs() error {
 
 	var data []github.Issue
 	if err = wf.Cache.LoadJSON(ghPullRequestsKey, &data); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return errUpdateNeeded
+		}
 		return err
 	}
 
@@ -94,7 +98,7 @@ func (wf *GithubWorkflow) DisplayPRs() error {
 
 		wf.NewItem(*pr.Title + reviewState).
 			Subtitle(fmt.Sprintf("%s#%d by %s, %s",
-				extractProject(*pr.HTMLURL),
+				parseRepo(*pr.HTMLURL),
 				*pr.Number,
 				*pr.User.Login,
 				pr.UpdatedAt.Format("02-Jan-2006 15:04"))).
@@ -131,7 +135,7 @@ func (wf *GithubWorkflow) FetchPRStatus() error {
 		go func(p github.Issue) {
 			defer wg.Done()
 
-			project := extractProject(*p.HTMLURL)
+			project := parseRepo(*p.HTMLURL)
 			owner, repo, _ := strings.Cut(project, "/")
 
 			uniqueKey := strconv.FormatInt(*p.ID, 10)
@@ -193,7 +197,7 @@ func (wf *GithubWorkflow) HandleError(err error) {
 			Arg(tokenUrl).
 			Valid(true).
 			Icon(aw.IconWeb)
-	} else if errors.Is(err, os.ErrNotExist) {
+	} else if err == errUpdateNeeded {
 		if !wf.IsRunning("update") {
 			if err1 := wf.RunInBackground("update", exec.Command(os.Args[0], "update")); err1 != nil {
 				log.Println("Failed to run background task 'update_status':", err1)

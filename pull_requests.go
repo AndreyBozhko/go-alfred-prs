@@ -14,7 +14,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
-func extractProject(htmlUrl string) string {
+func parseRepo(htmlUrl string) string {
 	project := htmlUrl
 
 	project, _, _ = strings.Cut(project, "/pull")
