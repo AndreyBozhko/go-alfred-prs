@@ -57,10 +57,10 @@ type GithubWorkflow struct {
 	ctx context.Context
 }
 
-var wf *GithubWorkflow
+var workflow *GithubWorkflow
 
 func init() {
-	wf = &GithubWorkflow{*aw.New(), context.Background()}
+	workflow = &GithubWorkflow{*aw.New(), context.Background()}
 }
 
 func (wf *GithubWorkflow) BaseUrl() string {
@@ -191,7 +191,7 @@ func (wf *GithubWorkflow) FetchPRStatus() error {
 }
 
 func run() error {
-	args := wf.Args()
+	args := workflow.Args()
 
 	if len(args) < 1 {
 		return errMissingArgs
@@ -204,16 +204,16 @@ func run() error {
 
 	switch cmd {
 	case cmdAuth:
-		return wf.SetToken(arg)
+		return workflow.SetToken(arg)
 	case cmdBaseUrl:
-		return wf.SetBaseUrl(arg)
+		return workflow.SetBaseUrl(arg)
 	case cmdDisplay:
 		allowUpdates := arg == "--allow-updates"
-		return wf.DisplayPRs(allowUpdates)
+		return workflow.DisplayPRs(allowUpdates)
 	case cmdUpdate:
-		return wf.FetchPRs()
+		return workflow.FetchPRs()
 	case cmdUpdateStatus:
-		return wf.FetchPRStatus()
+		return workflow.FetchPRStatus()
 	default:
 		return errUnknownCmd
 	}
@@ -251,10 +251,10 @@ func (wf *GithubWorkflow) HandleError(err error) {
 }
 
 func main() {
-	wf.Run(func() {
+	workflow.Run(func() {
 		if err := run(); err != nil {
-			wf.HandleError(err)
+			workflow.HandleError(err)
 		}
-		wf.SendFeedback()
+		workflow.SendFeedback()
 	})
 }
