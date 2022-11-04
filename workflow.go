@@ -38,7 +38,8 @@ const (
 
 // Environment variables used by the workflow.
 const (
-	ghRetryAttemptKey = "GH_ATTEMPTS_LEFT"
+	ghErrOccurredEnvVar  = "GH_ERR_OCCURRED"
+	ghRetryAttemptEnvVar = "GH_ATTEMPTS_LEFT"
 )
 
 // Common time and duration parameters used by the workflow.
@@ -283,7 +284,7 @@ func (wf *GithubWorkflow) DisplayUrlChoices(url string) error {
 				Valid(true)
 		} else {
 			wf.NewItem(url).
-				Subtitle("URL " + u + " does not match pattern " + gitUrlPattern.String()).
+				Subtitle(u + " does not match pattern " + gitUrlPattern.String()).
 				Icon(aw.IconError).
 				Valid(false)
 		}
@@ -356,7 +357,7 @@ func (wf *GithubWorkflow) HandleUpdateNeeded(upd *updateNeeded) {
 		Valid(false)
 
 	wf.Rerun(rerunDelay.Seconds())
-	wf.Var(ghRetryAttemptKey, strconv.Itoa(upd.attemptsLeft))
+	wf.Var(ghRetryAttemptEnvVar, strconv.Itoa(upd.attemptsLeft))
 
 	if err := wf.LaunchBackgroundTask(cmdUpdate); err != nil {
 		log.Println("failed to launch update task:", err)
@@ -370,11 +371,13 @@ func (wf *GithubWorkflow) HandleError(e error) {
 		return
 	}
 
+	wf.Var(ghErrOccurredEnvVar, "true")
+
 	switch e {
 	case kc.ErrNotFound:
 		wf.HandleMissingToken()
 	case errShowNoResults:
-		wf.WarnEmpty("No pull requests to display :(", "")
+		wf.WarnEmpty("No pull requests were found :(", "")
 	default:
 		wf.FatalError(e)
 	}
