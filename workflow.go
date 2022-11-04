@@ -18,6 +18,7 @@ import (
 	"github.com/google/go-github/v48/github"
 )
 
+// Commands that the workflow can run.
 const (
 	cmdAuth         = "auth"
 	cmdBaseUrl      = "base_url"
@@ -27,6 +28,7 @@ const (
 	cmdUrlChoices   = "url_choices"
 )
 
+// Cache keys used by the workflow.
 const (
 	ghAuthTokenKey    = "gh-auth-token"
 	ghBaseUrlKey      = "gh-base-url"
@@ -34,18 +36,22 @@ const (
 	ghPullRequestsKey = "gh-pull-requests"
 )
 
+// Environment variables used by the workflow.
 const (
 	ghRetryAttemptKey = "GH_ATTEMPTS_LEFT"
 )
 
+// Common time and duration parameters used by the workflow.
 const (
 	rerunDelay = 3 * time.Second
 )
 
+// Common regex patterns used by the workflow.
 var (
 	gitUrlPattern = regexp.MustCompile("^https://api.[a-z.]+.com$")
 )
 
+// Common workflow errors.
 var (
 	errMissingArgs     = errors.New("wrong number of arguments passed")
 	errPatternMismatch = errors.New("url does not match pattern " + gitUrlPattern.String())
@@ -55,6 +61,7 @@ var (
 	errUnknownCmd      = errors.New("unknown command")
 )
 
+// Wrapper around aw.Workflow.
 type GithubWorkflow struct {
 	aw.Workflow
 
@@ -63,10 +70,12 @@ type GithubWorkflow struct {
 
 var workflow *GithubWorkflow
 
+// init creates the default workflow.
 func init() {
 	workflow = &GithubWorkflow{*aw.New(), context.Background()}
 }
 
+// GetBaseUrl retrieves URL of the GitHub instance from workflow data.
 func (wf *GithubWorkflow) GetBaseUrl() string {
 	if base, err := wf.Data.Load(ghBaseUrlKey); err == nil {
 		return string(base)
@@ -74,6 +83,7 @@ func (wf *GithubWorkflow) GetBaseUrl() string {
 	return ""
 }
 
+// SetBaseUrl stores URL of the GitHub instance as workflow data.
 func (wf *GithubWorkflow) SetBaseUrl(url string) error {
 	if ok := gitUrlPattern.MatchString(url); !ok {
 		return errPatternMismatch
@@ -81,16 +91,18 @@ func (wf *GithubWorkflow) SetBaseUrl(url string) error {
 	return wf.Data.Store(ghBaseUrlKey, []byte(url))
 }
 
+// GetToken retrieves the API token from user's keychain.
 func (wf *GithubWorkflow) GetToken() (string, error) {
 	return wf.Keychain.Get(ghAuthTokenKey)
 }
 
+// SetToken sets the API token in user's keychain, and invalidates cache with github user login.
 func (wf *GithubWorkflow) SetToken(token string) error {
 	if token == "" {
 		return errTokenEmpty
 	}
 
-	// invalidate cache
+	// remove previously cached login
 	if err := wf.Cache.Store(ghUserInfoKey, nil); err != nil {
 		log.Println(err)
 	}
@@ -98,6 +110,7 @@ func (wf *GithubWorkflow) SetToken(token string) error {
 	return wf.Keychain.Set(ghAuthTokenKey, token)
 }
 
+// LaunchBackgroundTask starts a workflow task in the background (if it is not running already).
 func (wf *GithubWorkflow) LaunchBackgroundTask(task string, arg ...string) error {
 	log.Printf("Launching task '%s' in background...", task)
 	if wf.IsRunning(task) {
@@ -108,6 +121,7 @@ func (wf *GithubWorkflow) LaunchBackgroundTask(task string, arg ...string) error
 	return wf.RunInBackground(task, exec.Command(os.Args[0], cmdArgs...))
 }
 
+// DisplayPRs sends the list of pull requests to Alfred as feedback items.
 func (wf *GithubWorkflow) DisplayPRs(attemptsLeft int) error {
 	_, err := wf.GetToken()
 	if err != nil {
@@ -157,6 +171,8 @@ func (wf *GithubWorkflow) DisplayPRs(attemptsLeft int) error {
 	return nil
 }
 
+// FetchPRs searches GitHub for any pull requests that satisfy the user query,
+// and caches the metadata and review status for each PR.
 func (wf *GithubWorkflow) FetchPRs() error {
 	token, err := wf.GetToken()
 	if err != nil {
@@ -200,6 +216,7 @@ func (wf *GithubWorkflow) FetchPRs() error {
 	return wf.Cache.StoreJSON(ghPullRequestsKey, deduplicateAndSort(prs))
 }
 
+// FetchPRStatus gets the review status of pull requests from GitHub.
 func (wf *GithubWorkflow) FetchPRStatus() error {
 	token, err := wf.GetToken()
 	if err != nil {
@@ -249,6 +266,7 @@ func (wf *GithubWorkflow) FetchPRStatus() error {
 	return nil
 }
 
+// DisplayUrlChoices sends the GitHub URL options to Alfred as feedback items.
 func (wf *GithubWorkflow) DisplayUrlChoices(url string) error {
 	u := url
 
@@ -279,6 +297,8 @@ func (wf *GithubWorkflow) DisplayUrlChoices(url string) error {
 	return nil
 }
 
+// run executes the workflow logic. It delegates to
+// concrete workflow methods, based on parsed command line arguments.
 func run() error {
 	args := workflow.Args()
 
@@ -310,6 +330,7 @@ func run() error {
 	}
 }
 
+// HandleMissingToken indicates to user that the API token is not set.
 func (wf *GithubWorkflow) HandleMissingToken() {
 	wf.NewItem("No API key set").
 		Subtitle("Please use ghpr-auth to set your GitHub personal token").
@@ -324,6 +345,7 @@ func (wf *GithubWorkflow) HandleMissingToken() {
 		Icon(aw.IconWeb)
 }
 
+// HandleUpdateNeeded retries 'update' task, if allowed by the attempt limit.
 func (wf *GithubWorkflow) HandleUpdateNeeded(upd *updateNeeded) {
 	if upd.attemptsLeft <= 0 {
 		wf.FatalError(upd)
@@ -341,6 +363,7 @@ func (wf *GithubWorkflow) HandleUpdateNeeded(upd *updateNeeded) {
 	}
 }
 
+// HandleError converts workflow errors to Alfred feedback items.
 func (wf *GithubWorkflow) HandleError(e error) {
 	if upd, ok := e.(*updateNeeded); ok {
 		wf.HandleUpdateNeeded(upd)

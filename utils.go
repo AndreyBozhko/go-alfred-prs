@@ -9,6 +9,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
+// updateNeeded is an error that holds extra information such as number of remaining attempts.
 type updateNeeded struct {
 	message      string
 	attemptsLeft int
@@ -18,6 +19,7 @@ func (e *updateNeeded) Error() string {
 	return e.message
 }
 
+// parseRepoFromUrl extracts 'org/repo' substring from the HTML URL of a github issue.
 func parseRepoFromUrl(htmlUrl string) string {
 	project := htmlUrl
 
@@ -27,6 +29,7 @@ func parseRepoFromUrl(htmlUrl string) string {
 	return project
 }
 
+// deduplicateAndSort returns unique github issues from the slice, sorted by the update timestamp.
 func deduplicateAndSort(prs []*github.Issue) []*github.Issue {
 	var rslt []*github.Issue
 
@@ -45,6 +48,7 @@ func deduplicateAndSort(prs []*github.Issue) []*github.Issue {
 	return rslt
 }
 
+// parseReviewState summarizes the reviews of a pull request in a single string.
 func parseReviewState(reviews []github.PullRequestReview) string {
 	seen := make(map[string]github.PullRequestReview)
 	for _, item := range reviews {
@@ -71,6 +75,8 @@ func parseReviewState(reviews []github.PullRequestReview) string {
 	return " " + rslt
 }
 
+// newGithubClient creates a github client which uses
+// provided url and API token to connect to GitHub.
 func newGithubClient(ctx context.Context, url, token string) (*github.Client, error) {
 	httpclient := oauth2.NewClient(ctx, oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: token},
