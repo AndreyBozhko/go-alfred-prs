@@ -103,9 +103,11 @@ func (wf *GithubWorkflow) SetToken(token string) error {
 		return errTokenEmpty
 	}
 
-	// remove previously cached login
-	if err := wf.Cache.Store(ghUserInfoKey, nil); err != nil {
-		log.Println(err)
+	// remove previously cached login and PRs
+	for _, itm := range []string{ghUserInfoKey, ghPullRequestsKey} {
+		if err := wf.Cache.Store(itm, nil); err != nil {
+			log.Println(err)
+		}
 	}
 
 	return wf.Keychain.Set(ghAuthTokenKey, token)
