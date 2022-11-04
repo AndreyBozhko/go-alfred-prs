@@ -63,7 +63,7 @@ func init() {
 	workflow = &GithubWorkflow{*aw.New(), context.Background()}
 }
 
-func (wf *GithubWorkflow) BaseUrl() string {
+func (wf *GithubWorkflow) GetBaseUrl() string {
 	if base, err := wf.Data.Load(ghBaseUrlKey); err == nil {
 		return string(base)
 	}
@@ -77,15 +77,15 @@ func (wf *GithubWorkflow) SetBaseUrl(url string) error {
 	return wf.Data.Store(ghBaseUrlKey, []byte(url))
 }
 
+func (wf *GithubWorkflow) GetToken() (string, error) {
+	return wf.Keychain.Get(ghAuthTokenKey)
+}
+
 func (wf *GithubWorkflow) SetToken(token string) error {
 	if token == "" {
 		return errTokenEmpty
 	}
 	return wf.Keychain.Set(ghAuthTokenKey, token)
-}
-
-func (wf *GithubWorkflow) Token() (string, error) {
-	return wf.Keychain.Get(ghAuthTokenKey)
 }
 
 func (wf *GithubWorkflow) LaunchBackgroundTask(task string, arg ...string) error {
@@ -99,7 +99,7 @@ func (wf *GithubWorkflow) LaunchBackgroundTask(task string, arg ...string) error
 }
 
 func (wf *GithubWorkflow) DisplayPRs(allowUpdates bool) error {
-	_, err := wf.Token()
+	_, err := wf.GetToken()
 	if err != nil {
 		return err
 	}
@@ -112,18 +112,18 @@ func (wf *GithubWorkflow) DisplayPRs(allowUpdates bool) error {
 		}
 	}
 
-	var data []github.Issue
-	if err = wf.Cache.LoadJSON(ghPullRequestsKey, &data); err != nil {
+	var prs []github.Issue
+	if err = wf.Cache.LoadJSON(ghPullRequestsKey, &prs); err != nil {
 		return err
 	}
 
-	if len(data) == 0 {
+	if len(prs) == 0 {
 		return errShowNoResults
 	}
 
 	zone, _ := time.LoadLocation("Local")
 
-	for _, pr := range data {
+	for _, pr := range prs {
 
 		var reviewState string
 		var reviews []github.PullRequestReview
@@ -132,12 +132,12 @@ func (wf *GithubWorkflow) DisplayPRs(allowUpdates bool) error {
 		if err = wf.Cache.LoadJSON(uniqueKey, &reviews); err != nil {
 			log.Printf("failed to load reviews for PR %d, error: %s", *pr.ID, err)
 		} else {
-			reviewState = constructDisplayState(reviews)
+			reviewState = parseReviewState(reviews)
 		}
 
 		wf.NewItem(*pr.Title + reviewState).
 			Subtitle(fmt.Sprintf("%s#%d by %s, %s",
-				parseRepo(*pr.HTMLURL),
+				parseRepoFromUrl(*pr.HTMLURL),
 				*pr.Number,
 				*pr.User.Login,
 				pr.UpdatedAt.In(zone).Format("02-Jan-2006 15:04"))).
@@ -149,12 +149,12 @@ func (wf *GithubWorkflow) DisplayPRs(allowUpdates bool) error {
 }
 
 func (wf *GithubWorkflow) FetchPRs() error {
-	token, err := wf.Token()
+	token, err := wf.GetToken()
 	if err != nil {
 		return err
 	}
 
-	client, err := newGithubClient(wf.ctx, wf.BaseUrl(), token)
+	client, err := newGithubClient(wf.ctx, wf.GetBaseUrl(), token)
 	if err != nil {
 		return err
 	}
@@ -192,17 +192,17 @@ func (wf *GithubWorkflow) FetchPRs() error {
 }
 
 func (wf *GithubWorkflow) FetchPRStatus() error {
-	token, err := wf.Token()
+	token, err := wf.GetToken()
 	if err != nil {
 		return err
 	}
 
-	var data []github.Issue
-	if err = wf.Cache.LoadJSON(ghPullRequestsKey, &data); err != nil {
+	var prs []github.Issue
+	if err = wf.Cache.LoadJSON(ghPullRequestsKey, &prs); err != nil {
 		return err
 	}
 
-	client, err := newGithubClient(wf.ctx, wf.BaseUrl(), token)
+	client, err := newGithubClient(wf.ctx, wf.GetBaseUrl(), token)
 	if err != nil {
 		return err
 	}
@@ -211,12 +211,12 @@ func (wf *GithubWorkflow) FetchPRStatus() error {
 	defer wg.Wait()
 
 	// TODO FIXME invalidate cache
-	wg.Add(len(data))
-	for _, pr := range data {
+	wg.Add(len(prs))
+	for _, pr := range prs {
 		go func(p github.Issue) {
 			defer wg.Done()
 
-			project := parseRepo(*p.HTMLURL)
+			project := parseRepoFromUrl(*p.HTMLURL)
 			owner, repo, _ := strings.Cut(project, "/")
 
 			uniqueKey := strconv.FormatInt(*p.ID, 10)
@@ -275,7 +275,7 @@ func (wf *GithubWorkflow) HandleMissingToken() {
 		Valid(false).
 		Icon(aw.IconError)
 
-	tokenUrl := wf.BaseUrl() + "/settings/tokens"
+	tokenUrl := wf.GetBaseUrl() + "/settings/tokens"
 	wf.NewItem("Generate new token on GitHub").
 		Subtitle(tokenUrl).
 		Arg(tokenUrl).
@@ -283,20 +283,20 @@ func (wf *GithubWorkflow) HandleMissingToken() {
 		Icon(aw.IconWeb)
 }
 
-func (wf *GithubWorkflow) HandleError(err error) {
-	switch err {
+func (wf *GithubWorkflow) HandleError(e error) {
+	switch e {
 	case kc.ErrNotFound:
 		wf.HandleMissingToken()
 	case errShowNoResults:
 		wf.WarnEmpty("No pull requests to display :(", "")
 	case errUpdateNeeded:
-		if err1 := wf.LaunchBackgroundTask(cmdUpdate); err1 != nil {
-			log.Println("failed to launch update task:", err1)
+		if err := wf.LaunchBackgroundTask(cmdUpdate); err != nil {
+			log.Println("failed to launch update task:", err)
 		}
 		wf.NewItem("Loading...").Valid(false)
 		wf.Feedback.Rerun(rerunDelay.Seconds())
 	default:
-		wf.FatalError(err)
+		wf.FatalError(e)
 	}
 }
 

@@ -9,7 +9,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
-func parseRepo(htmlUrl string) string {
+func parseRepoFromUrl(htmlUrl string) string {
 	project := htmlUrl
 
 	project, _, _ = strings.Cut(project, "/pull")
@@ -28,6 +28,7 @@ func deduplicateAndSort(prs []*github.Issue) []*github.Issue {
 			rslt = append(rslt, item)
 		}
 	}
+
 	sort.Slice(rslt, func(i, j int) bool {
 		return rslt[i].UpdatedAt.After(*rslt[j].UpdatedAt)
 	})
@@ -35,18 +36,23 @@ func deduplicateAndSort(prs []*github.Issue) []*github.Issue {
 	return rslt
 }
 
-func constructDisplayState(status []github.PullRequestReview) string {
-	var rslt string
+func parseReviewState(reviews []github.PullRequestReview) string {
 	seen := make(map[string]github.PullRequestReview)
-	for _, item := range status {
-		if v, ok := seen[*item.User.Login]; !ok || item.SubmittedAt.After(*v.SubmittedAt) {
+	for _, item := range reviews {
+		v := seen[*item.User.Login]
+		if item.GetSubmittedAt().After(v.GetSubmittedAt()) {
 			seen[*item.User.Login] = item
 		}
 	}
 
+	var rslt string
+
 	for _, v := range seen {
-		if strings.ToLower(*v.State) == "approved" {
+		switch *v.State {
+		case "APPROVED":
 			rslt += "✅"
+		case "CHANGES_REQUESTED":
+			rslt += "❌"
 		}
 	}
 
