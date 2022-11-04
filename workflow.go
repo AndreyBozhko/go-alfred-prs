@@ -259,19 +259,19 @@ func (wf *GithubWorkflow) DisplayUrlChoices(url string) error {
 		u = "https://api." + u
 
 		if gitUrlPattern.MatchString(u) {
-			wf.NewItem("[Custom]: " + url).
+			wf.NewItem(url).
 				Subtitle("Set URL as " + u).
 				Arg(u).
 				Valid(true)
 		} else {
-			wf.NewItem("[Custom]: " + url).
+			wf.NewItem(url).
 				Subtitle("URL " + u + " does not match pattern " + gitUrlPattern.String()).
-				Icon(aw.IconWarning).
+				Icon(aw.IconError).
 				Valid(false)
 		}
 	}
 
-	wf.NewItem("[Default]: github.com").
+	wf.NewItem("(Default) github.com").
 		Subtitle("Set URL as https://api.github.com").
 		Arg("https://api.github.com").
 		Valid(true)
