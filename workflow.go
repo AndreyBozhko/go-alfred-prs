@@ -24,6 +24,7 @@ const (
 	cmdDisplay      = "display"
 	cmdUpdate       = "update"
 	cmdUpdateStatus = "update_status"
+	cmdUrlChoices   = "url_choices"
 )
 
 const (
@@ -31,6 +32,10 @@ const (
 	ghBaseUrlKey      = "gh-base-url"
 	ghUserInfoKey     = "gh-user-info"
 	ghPullRequestsKey = "gh-pull-requests"
+)
+
+const (
+	ghRetryAttemptKey = "GH_ATTEMPTS_LEFT"
 )
 
 const (
@@ -48,7 +53,6 @@ var (
 	errTaskRunning     = errors.New("task is already running")
 	errTokenEmpty      = errors.New("token must not be empty")
 	errUnknownCmd      = errors.New("unknown command")
-	errUpdateNeeded    = errors.New("need to refresh pull requests cache")
 )
 
 type GithubWorkflow struct {
@@ -98,17 +102,16 @@ func (wf *GithubWorkflow) LaunchBackgroundTask(task string, arg ...string) error
 	return wf.RunInBackground(task, exec.Command(os.Args[0], cmdArgs...))
 }
 
-func (wf *GithubWorkflow) DisplayPRs(allowUpdates bool) error {
+func (wf *GithubWorkflow) DisplayPRs(attemptsLeft int) error {
 	_, err := wf.GetToken()
 	if err != nil {
 		return err
 	}
 
 	if wf.Cache.Expired(ghPullRequestsKey, time.Hour) {
-		if allowUpdates {
-			return errUpdateNeeded
-		} else {
-			return errShowNoResults
+		return &updateNeeded{
+			"could not load pull requests - try running ghpr-update manually",
+			attemptsLeft - 1,
 		}
 	}
 
@@ -240,6 +243,20 @@ func (wf *GithubWorkflow) FetchPRStatus() error {
 	return nil
 }
 
+func (wf *GithubWorkflow) DisplayUrlChoices(url string) error {
+	if url != "" {
+		wf.NewItem("[Custom]: " + url).
+			Subtitle("Set URL as https://" + url).
+			Arg("https://" + url)
+	}
+
+	wf.NewItem("[Default]: github.com").
+		Subtitle("Set URL as https://github.com").
+		Arg("")
+
+	return nil
+}
+
 func run() error {
 	args := workflow.Args()
 
@@ -258,12 +275,14 @@ func run() error {
 	case cmdBaseUrl:
 		return workflow.SetBaseUrl(arg)
 	case cmdDisplay:
-		allowUpdates := arg == "--allow-updates"
-		return workflow.DisplayPRs(allowUpdates)
+		attempt, _ := strconv.Atoi(arg)
+		return workflow.DisplayPRs(attempt)
 	case cmdUpdate:
 		return workflow.FetchPRs()
 	case cmdUpdateStatus:
 		return workflow.FetchPRStatus()
+	case cmdUrlChoices:
+		return workflow.DisplayUrlChoices(arg)
 	default:
 		return errUnknownCmd
 	}
@@ -283,18 +302,34 @@ func (wf *GithubWorkflow) HandleMissingToken() {
 		Icon(aw.IconWeb)
 }
 
+func (wf *GithubWorkflow) HandleUpdateNeeded(upd *updateNeeded) {
+	if upd.attemptsLeft <= 0 {
+		wf.FatalError(upd)
+	}
+
+	wf.NewItem("Loading...").
+		Subtitle(fmt.Sprintf("will retry a few times - %d attempt(s) left", upd.attemptsLeft)).
+		Valid(false)
+
+	wf.Rerun(rerunDelay.Seconds())
+	wf.Var(ghRetryAttemptKey, strconv.Itoa(upd.attemptsLeft))
+
+	if err := wf.LaunchBackgroundTask(cmdUpdate); err != nil {
+		log.Println("failed to launch update task:", err)
+	}
+}
+
 func (wf *GithubWorkflow) HandleError(e error) {
+	if upd, ok := e.(*updateNeeded); ok {
+		wf.HandleUpdateNeeded(upd)
+		return
+	}
+
 	switch e {
 	case kc.ErrNotFound:
 		wf.HandleMissingToken()
 	case errShowNoResults:
 		wf.WarnEmpty("No pull requests to display :(", "")
-	case errUpdateNeeded:
-		if err := wf.LaunchBackgroundTask(cmdUpdate); err != nil {
-			log.Println("failed to launch update task:", err)
-		}
-		wf.NewItem("Loading...").Valid(false)
-		wf.Feedback.Rerun(rerunDelay.Seconds())
 	default:
 		wf.FatalError(e)
 	}

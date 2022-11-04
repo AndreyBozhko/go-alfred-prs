@@ -9,6 +9,15 @@ import (
 	"golang.org/x/oauth2"
 )
 
+type updateNeeded struct {
+	message      string
+	attemptsLeft int
+}
+
+func (e *updateNeeded) Error() string {
+	return e.message
+}
+
 func parseRepoFromUrl(htmlUrl string) string {
 	project := htmlUrl
 
