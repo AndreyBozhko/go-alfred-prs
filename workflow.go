@@ -43,7 +43,7 @@ const (
 )
 
 var (
-	gitUrlPattern = regexp.MustCompile("^https://(.*)?.com$")
+	gitUrlPattern = regexp.MustCompile("^https://[a-z.]+.com$")
 )
 
 var (
@@ -89,6 +89,12 @@ func (wf *GithubWorkflow) SetToken(token string) error {
 	if token == "" {
 		return errTokenEmpty
 	}
+
+	// invalidate cache
+	if err := wf.Cache.Store(ghUserInfoKey, nil); err != nil {
+		log.Println(err)
+	}
+
 	return wf.Keychain.Set(ghAuthTokenKey, token)
 }
 
@@ -244,15 +250,28 @@ func (wf *GithubWorkflow) FetchPRStatus() error {
 }
 
 func (wf *GithubWorkflow) DisplayUrlChoices(url string) error {
-	if url != "" {
-		wf.NewItem("[Custom]: " + url).
-			Subtitle("Set URL as https://" + url).
-			Arg("https://" + url)
+	u := strings.TrimPrefix(url, "https://")
+
+	if u != "" {
+		u = "https://" + u
+
+		if gitUrlPattern.MatchString(u) {
+			wf.NewItem("[Custom]: " + url).
+				Subtitle("Set URL as " + u).
+				Arg(u).
+				Valid(true)
+		} else {
+			wf.NewItem("[Custom]: " + url).
+				Subtitle("URL " + u + " does not match pattern " + gitUrlPattern.String()).
+				Icon(aw.IconWarning).
+				Valid(false)
+		}
 	}
 
 	wf.NewItem("[Default]: github.com").
 		Subtitle("Set URL as https://github.com").
-		Arg("")
+		Arg("https://github.com").
+		Valid(true)
 
 	return nil
 }
@@ -294,10 +313,10 @@ func (wf *GithubWorkflow) HandleMissingToken() {
 		Valid(false).
 		Icon(aw.IconError)
 
-	tokenUrl := wf.GetBaseUrl() + "/settings/tokens"
+	tokenUrl := wf.GetBaseUrl() + "/settings/tokens/new"
 	wf.NewItem("Generate new token on GitHub").
 		Subtitle(tokenUrl).
-		Arg(tokenUrl).
+		Arg(tokenUrl + "?description=go-ghpr&scopes=repo").
 		Valid(true).
 		Icon(aw.IconWeb)
 }
