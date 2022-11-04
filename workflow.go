@@ -43,7 +43,7 @@ const (
 )
 
 var (
-	gitUrlPattern = regexp.MustCompile("^https://[a-z.]+.com$")
+	gitUrlPattern = regexp.MustCompile("^https://api.[a-z.]+.com$")
 )
 
 var (
@@ -250,10 +250,13 @@ func (wf *GithubWorkflow) FetchPRStatus() error {
 }
 
 func (wf *GithubWorkflow) DisplayUrlChoices(url string) error {
-	u := strings.TrimPrefix(url, "https://")
+	u := url
+
+	u = strings.TrimPrefix(u, "https://")
+	u = strings.TrimPrefix(u, "api.")
 
 	if u != "" {
-		u = "https://" + u
+		u = "https://api." + u
 
 		if gitUrlPattern.MatchString(u) {
 			wf.NewItem("[Custom]: " + url).
@@ -269,8 +272,8 @@ func (wf *GithubWorkflow) DisplayUrlChoices(url string) error {
 	}
 
 	wf.NewItem("[Default]: github.com").
-		Subtitle("Set URL as https://github.com").
-		Arg("https://github.com").
+		Subtitle("Set URL as https://api.github.com").
+		Arg("https://api.github.com").
 		Valid(true)
 
 	return nil
