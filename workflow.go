@@ -148,6 +148,49 @@ func (wf *GithubWorkflow) DisplayPRs(allowUpdates bool) error {
 	return nil
 }
 
+func (wf *GithubWorkflow) FetchPRs() error {
+	token, err := wf.Token()
+	if err != nil {
+		return err
+	}
+
+	client, err := newGithubClient(wf.ctx, wf.BaseUrl(), token)
+	if err != nil {
+		return err
+	}
+
+	var user github.User
+	err = wf.Cache.LoadOrStoreJSON(
+		ghUserInfoKey,
+		time.Hour,
+		func() (interface{}, error) {
+			u, _, err := client.Users.Get(wf.ctx, "")
+			return u, err
+		},
+		&user)
+	if err != nil {
+		return err
+	}
+
+	var prs []*github.Issue
+	for _, role := range []string{"author", "review-requested", "mentions", "assignee"} {
+		query := fmt.Sprintf("type:pr is:open %s:%s", role, *user.Login)
+		issues, _, err := client.Search.Issues(wf.ctx, query, nil)
+		if err != nil {
+			return err
+		}
+		prs = append(prs, issues.Issues...)
+	}
+
+	defer func() {
+		if err := wf.LaunchBackgroundTask(cmdUpdateStatus); err != nil {
+			log.Println("failed to launch update task:", err)
+		}
+	}()
+
+	return wf.Cache.StoreJSON(ghPullRequestsKey, deduplicateAndSort(prs))
+}
+
 func (wf *GithubWorkflow) FetchPRStatus() error {
 	token, err := wf.Token()
 	if err != nil {
