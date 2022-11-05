@@ -76,12 +76,17 @@ func init() {
 	workflow = &GithubWorkflow{*aw.New(), context.Background()}
 }
 
-// GetBaseUrl retrieves URL of the GitHub instance from workflow data.
-func (wf *GithubWorkflow) GetBaseUrl() string {
+// GetBaseApiUrl retrieves API URL of the GitHub instance from workflow data.
+func (wf *GithubWorkflow) GetBaseApiUrl() string {
 	if base, err := wf.Data.Load(ghBaseUrlKey); err == nil {
 		return string(base)
 	}
 	return ""
+}
+
+// GetBaseWebUrl retrieves web URL of the GitHub instance from workflow data.
+func (wf *GithubWorkflow) GetBaseWebUrl() string {
+	return strings.ReplaceAll(wf.GetBaseApiUrl(), "https://api.", "https://")
 }
 
 // SetBaseUrl stores URL of the GitHub instance as workflow data.
@@ -182,7 +187,7 @@ func (wf *GithubWorkflow) FetchPRs() error {
 		return err
 	}
 
-	client, err := newGithubClient(wf.ctx, wf.GetBaseUrl(), token)
+	client, err := newGithubClient(wf.ctx, wf.GetBaseApiUrl(), token)
 	if err != nil {
 		return err
 	}
@@ -231,7 +236,7 @@ func (wf *GithubWorkflow) FetchPRStatus() error {
 		return err
 	}
 
-	client, err := newGithubClient(wf.ctx, wf.GetBaseUrl(), token)
+	client, err := newGithubClient(wf.ctx, wf.GetBaseApiUrl(), token)
 	if err != nil {
 		return err
 	}
@@ -340,7 +345,7 @@ func (wf *GithubWorkflow) HandleMissingToken() {
 		Valid(false).
 		Icon(aw.IconError)
 
-	tokenUrl := wf.GetBaseUrl() + "/settings/tokens/new"
+	tokenUrl := wf.GetBaseWebUrl() + "/settings/tokens/new"
 	wf.NewItem("Generate new token on GitHub").
 		Subtitle(tokenUrl).
 		Arg(tokenUrl + "?description=go-ghpr&scopes=repo").
