@@ -64,9 +64,7 @@ var (
 
 // Wrapper around aw.Workflow.
 type GithubWorkflow struct {
-	aw.Workflow
-
-	ctx context.Context
+	*aw.Workflow
 }
 
 var workflow *GithubWorkflow
@@ -78,7 +76,7 @@ func init() {
 		aw.IconWarning = aw.IconError
 	}
 
-	workflow = &GithubWorkflow{*aw.New(), context.Background()}
+	workflow = &GithubWorkflow{aw.New()}
 }
 
 // GetBaseApiUrl retrieves API URL of the GitHub instance from workflow data.
@@ -187,12 +185,14 @@ func (wf *GithubWorkflow) DisplayPRs(attemptsLeft int) error {
 // FetchPRs searches GitHub for any pull requests that satisfy the user query,
 // and caches the metadata and review status for each PR.
 func (wf *GithubWorkflow) FetchPRs() error {
+	ctx := context.Background()
+
 	token, err := wf.GetToken()
 	if err != nil {
 		return err
 	}
 
-	client, err := newGithubClient(wf.ctx, wf.GetBaseApiUrl(), token)
+	client, err := newGithubClient(ctx, wf.GetBaseApiUrl(), token)
 	if err != nil {
 		return err
 	}
@@ -202,7 +202,7 @@ func (wf *GithubWorkflow) FetchPRs() error {
 		ghUserInfoKey,
 		time.Hour,
 		func() (interface{}, error) {
-			u, _, err := client.Users.Get(wf.ctx, "")
+			u, _, err := client.Users.Get(ctx, "")
 			return u, err
 		},
 		&user)
@@ -213,7 +213,7 @@ func (wf *GithubWorkflow) FetchPRs() error {
 	var prs []*github.Issue
 	for _, role := range []string{"author", "review-requested", "mentions", "assignee"} {
 		query := fmt.Sprintf("type:pr is:open %s:%s", role, *user.Login)
-		issues, _, err := client.Search.Issues(wf.ctx, query, nil)
+		issues, _, err := client.Search.Issues(ctx, query, nil)
 		if err != nil {
 			return err
 		}
@@ -231,6 +231,8 @@ func (wf *GithubWorkflow) FetchPRs() error {
 
 // FetchPRStatus gets the review status of pull requests from GitHub.
 func (wf *GithubWorkflow) FetchPRStatus() error {
+	ctx := context.Background()
+
 	token, err := wf.GetToken()
 	if err != nil {
 		return err
@@ -241,7 +243,7 @@ func (wf *GithubWorkflow) FetchPRStatus() error {
 		return err
 	}
 
-	client, err := newGithubClient(wf.ctx, wf.GetBaseApiUrl(), token)
+	client, err := newGithubClient(ctx, wf.GetBaseApiUrl(), token)
 	if err != nil {
 		return err
 	}
@@ -265,7 +267,7 @@ func (wf *GithubWorkflow) FetchPRStatus() error {
 				uniqueKey,
 				time.Since(*p.UpdatedAt),
 				func() (interface{}, error) {
-					reviews, _, err := client.PullRequests.ListReviews(wf.ctx, owner, repo, *p.Number, nil)
+					reviews, _, err := client.PullRequests.ListReviews(ctx, owner, repo, *p.Number, nil)
 					return reviews, err
 				},
 				&ignored)
