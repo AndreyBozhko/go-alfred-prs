@@ -73,6 +73,11 @@ var workflow *GithubWorkflow
 
 // init creates the default workflow.
 func init() {
+	if _, err := os.Stat(aw.IconWarning.Value); err != nil {
+		// substitute icon if it doesn't exist
+		aw.IconWarning = aw.IconError
+	}
+
 	workflow = &GithubWorkflow{*aw.New(), context.Background()}
 }
 
@@ -290,10 +295,7 @@ func (wf *GithubWorkflow) DisplayUrlChoices(url string) error {
 				Arg(u).
 				Valid(true)
 		} else {
-			wf.NewItem(url).
-				Subtitle(u + " does not match pattern " + gitUrlPattern.String()).
-				Icon(aw.IconError).
-				Valid(false)
+			wf.NewWarningItem(url, u+" does not match pattern "+gitUrlPattern.String())
 		}
 	}
 
@@ -340,10 +342,7 @@ func run() error {
 
 // HandleMissingToken indicates to user that the API token is not set.
 func (wf *GithubWorkflow) HandleMissingToken() {
-	wf.NewItem("No API key set").
-		Subtitle("Please use ghpr-auth to set your GitHub personal token").
-		Valid(false).
-		Icon(aw.IconError)
+	wf.NewWarningItem("No API key set", "Please use ghpr-auth to set you GitHub personal token")
 
 	tokenUrl := wf.GetBaseWebUrl() + "/settings/tokens/new"
 	wf.NewItem("Generate new token on GitHub").
