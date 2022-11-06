@@ -24,18 +24,18 @@ jobs:
       
       - name: Compile
         run: |
-          go build -ldflags "-s -w" -o workflow ./...
+          go build -ldflags "-s -w" -o go-ghpr workflow.go utils.go
       
       - name: Package
         env:
           alfred_version: 4
-          alfred_preferences: ./build/prefs.json
+          alfred_preferences: ./tools/prefs.json
           alfred_workflow_version: $(cat version)
         run: |
+          export alfred_workflow_version=$(cat version)
           mkdir build
           mkdir dist
-          touch build/prefs.json
-          cp LICENSE README.md workflow icon.png info.plist version build/
+          cp LICENSE README.md go-ghpr icon.png info.plist version build/
           go run tools/package.go
       
       - name: Publish
