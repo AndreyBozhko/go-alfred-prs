@@ -20,7 +20,7 @@ func (e *updateNeeded) Error() string {
 }
 
 var (
-	ghHtmlUrlPattern = regexp.MustCompile(`^https://[a-z.]+.com/(.+)/pull/\d+$`)
+	ghHtmlUrlPattern = regexp.MustCompile(`^https://[a-z.]+.com/([a-zA-Z0-9/_\-]+)/pull/\d+$`)
 )
 
 // parseRepoFromUrl extracts 'org/repo' substring from the HTML URL of a GitHub issue.

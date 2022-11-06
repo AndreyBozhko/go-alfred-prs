@@ -38,13 +38,16 @@ const (
 
 // Environment variables used by the workflow.
 const (
+	wfCacheMaxAgeEnvVar  = "CACHE_MAX_AGE"
 	wfErrOccurredEnvVar  = "GH_ERROR_OCCURRED"
 	wfRetryAttemptEnvVar = "GH_ATTEMPTS_LEFT"
+	wfRoleFiltersEnvVar  = "QUERY_BY_ROLES"
 )
 
 // Common time and duration parameters used by the workflow.
 const (
-	rerunDelay = 3 * time.Second
+	cacheMaxAgeDefault = 600 * time.Second
+	rerunDelayDefault  = 3 * time.Second
 )
 
 // Common regex patterns used by the workflow.
@@ -64,6 +67,9 @@ var (
 // GithubWorkflow is a wrapper around aw.Workflow.
 type GithubWorkflow struct {
 	*aw.Workflow
+
+	cacheMaxAge time.Duration
+	roleFilters []string
 }
 
 var workflow *GithubWorkflow
@@ -75,7 +81,46 @@ func init() {
 		aw.IconWarning = aw.IconError
 	}
 
-	workflow = &GithubWorkflow{aw.New()}
+	workflow = &GithubWorkflow{
+		Workflow:    aw.New(),
+		cacheMaxAge: getCacheMaxAge(),
+		roleFilters: getRoleFilters(),
+	}
+}
+
+// getCacheMaxAge returns the max age configuration for the workflow cache.
+func getCacheMaxAge() time.Duration {
+	if age, err := strconv.Atoi(os.Getenv(wfCacheMaxAgeEnvVar)); err == nil {
+		return time.Duration(age) * time.Second
+	}
+
+	return cacheMaxAgeDefault
+}
+
+// getRoleFilters returns user roles which will be used to search for open pull requests.
+func getRoleFilters() []string {
+	knownRoleFilters := map[string]struct{}{
+		"author":           {},
+		"assignee":         {},
+		"involves":         {},
+		"mentions":         {},
+		"review-requested": {},
+	}
+
+	var result []string
+
+	filters := strings.Split(os.Getenv(wfRoleFiltersEnvVar), ",")
+	for _, f := range filters {
+		if _, ok := knownRoleFilters[f]; ok {
+			result = append(result, f)
+		}
+	}
+
+	if len(result) == 0 {
+		result = append(result, "involves")
+	}
+
+	return result
 }
 
 // GetBaseApiUrl retrieves API URL of the GitHub instance from workflow data.
@@ -138,7 +183,7 @@ func (wf *GithubWorkflow) DisplayPRs(attemptsLeft int) error {
 		return err
 	}
 
-	if wf.Cache.Expired(wfPullRequestsKey, time.Hour) {
+	if wf.Cache.Expired(wfPullRequestsKey, wf.cacheMaxAge) {
 		return &updateNeeded{
 			"could not load pull requests - try running ghpr-update manually",
 			attemptsLeft - 1,
@@ -209,7 +254,7 @@ func (wf *GithubWorkflow) FetchPRs() error {
 	}
 
 	var prs []*github.Issue
-	for _, role := range []string{"author", "review-requested", "mentions", "assignee"} {
+	for _, role := range wf.roleFilters {
 		query := fmt.Sprintf("type:pr is:open %s:%s", role, *user.Login)
 		issues, _, err := client.Search.Issues(ctx, query, nil)
 		if err != nil {
@@ -362,7 +407,7 @@ func (wf *GithubWorkflow) HandleUpdateNeeded(upd *updateNeeded) {
 		Subtitle(fmt.Sprintf("will retry a few times - %d attempt(s) left", upd.attemptsLeft)).
 		Valid(false)
 
-	wf.Rerun(rerunDelay.Seconds())
+	wf.Rerun(rerunDelayDefault.Seconds())
 	wf.Var(wfRetryAttemptEnvVar, strconv.Itoa(upd.attemptsLeft))
 
 	if err := wf.LaunchBackgroundTask(cmdUpdate); err != nil {
