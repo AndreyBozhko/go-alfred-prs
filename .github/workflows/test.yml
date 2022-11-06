@@ -1,0 +1,35 @@
+name: Run Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    if: github.repository == 'AndreyBozhko/go-ghpr'
+    runs-on: macos-latest
+    steps:
+      - name: Install Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: "1.19.x"
+
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      - name: Fetch dependencies
+        run: |
+          go get -v -t ./...
+
+      - name: Run tests
+        env:
+          alfred_workflow_bundleid: me.abozhko.ghpr
+          alfred_workflow_data: ./.tmp/data
+          alfred_workflow_cache: ./.tmp/cache
+          alfred_workflow_version: $(cat version)
+          alfred_workflow_name: ghpr
+          AW_SESSION_ID: aw_session_id
+        run: |
+          go test -v ./...
