@@ -1,9 +1,11 @@
-name: Release
+name: Release new version
 
 on:
   push:
-    tags:
-      - "v*.*.*"
+    branches:
+      - "main"
+    paths:
+      - "version"
 
 jobs:
   release:
@@ -30,14 +32,18 @@ jobs:
         env:
           alfred_version: 4
           alfred_preferences: ./tools/prefs.json
-          alfred_workflow_version: $(cat version)
         run: |
-          export alfred_workflow_version=$(cat version)
-          mkdir build
-          mkdir dist
+          export alfred_workflow_version=v$(cat version)
+          mkdir build && mkdir dist
           cp LICENSE README.md go-ghpr icon.png info.plist version build/
-          go run tools/package.go
+          go run tools/package.go build dist
       
+      - name: Push new tag
+        run: |
+          TAG=v$(cat version)
+          git tag $TAG
+          git push origin $TAG
+
       - name: Publish
         uses: softprops/action-gh-release@v1
         with:
