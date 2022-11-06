@@ -1,0 +1,44 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  release:
+    if: github.repository == 'AndreyBozhko/go-ghpr'
+    runs-on: macos-latest
+    steps:
+      - name: Install Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: "1.19.x"
+
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      - name: Fetch dependencies
+        run: |
+          go get -v ./...
+      
+      - name: Compile
+        run: |
+          go build -ldflags "-s -w" -o workflow ./...
+      
+      - name: Package
+        env:
+          alfred_version: 4
+          alfred_preferences: ./build/prefs.json
+          alfred_workflow_version: $(cat version)
+        run: |
+          mkdir build
+          mkdir dist
+          touch build/prefs.json
+          cp LICENSE README.md workflow icon.png info.plist version build/
+          go run tools/package.go
+      
+      - name: Publish
+        uses: softprops/action-gh-release@v1
+        with:
+          files: dist/*.alfredworkflow
