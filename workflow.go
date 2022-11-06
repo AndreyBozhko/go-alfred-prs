@@ -56,7 +56,6 @@ var (
 var (
 	errMissingArgs     = errors.New("wrong number of arguments passed")
 	errPatternMismatch = errors.New("url does not match pattern " + gitUrlPattern.String())
-	errShowNoResults   = errors.New("need to display zero item warning")
 	errTaskRunning     = errors.New("task is already running")
 	errTokenEmpty      = errors.New("token must not be empty")
 	errUnknownCmd      = errors.New("unknown command")
@@ -151,10 +150,6 @@ func (wf *GithubWorkflow) DisplayPRs(attemptsLeft int) error {
 		return err
 	}
 
-	if len(prs) == 0 {
-		return errShowNoResults
-	}
-
 	zone, _ := time.LoadLocation("Local")
 
 	for _, pr := range prs {
@@ -178,6 +173,9 @@ func (wf *GithubWorkflow) DisplayPRs(attemptsLeft int) error {
 			Arg(*pr.HTMLURL).
 			Valid(true)
 	}
+
+	// fallback in case prs is empty
+	wf.WarnEmpty("No pull requests were found :(", "")
 
 	return nil
 }
@@ -384,8 +382,6 @@ func (wf *GithubWorkflow) HandleError(e error) {
 	switch e {
 	case kc.ErrNotFound:
 		wf.HandleMissingToken()
-	case errShowNoResults:
-		wf.WarnEmpty("No pull requests were found :(", "")
 	default:
 		wf.FatalError(e)
 	}
