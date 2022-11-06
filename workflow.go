@@ -30,16 +30,16 @@ const (
 
 // Cache keys used by the workflow.
 const (
-	ghAuthTokenKey    = "gh-auth-token"
-	ghBaseUrlKey      = "gh-base-url"
-	ghUserInfoKey     = "gh-user-info"
-	ghPullRequestsKey = "gh-pull-requests"
+	wfAuthTokenKey    = "gh-auth-token"
+	wfBaseUrlKey      = "gh-base-url"
+	wfUserInfoKey     = "gh-user-info"
+	wfPullRequestsKey = "gh-pull-requests"
 )
 
 // Environment variables used by the workflow.
 const (
-	ghErrOccurredEnvVar  = "GH_ERR_OCCURRED"
-	ghRetryAttemptEnvVar = "GH_ATTEMPTS_LEFT"
+	wfErrOccurredEnvVar  = "GH_ERROR_OCCURRED"
+	wfRetryAttemptEnvVar = "GH_ATTEMPTS_LEFT"
 )
 
 // Common time and duration parameters used by the workflow.
@@ -81,7 +81,7 @@ func init() {
 
 // GetBaseApiUrl retrieves API URL of the GitHub instance from workflow data.
 func (wf *GithubWorkflow) GetBaseApiUrl() string {
-	if base, err := wf.Data.Load(ghBaseUrlKey); err == nil {
+	if base, err := wf.Data.Load(wfBaseUrlKey); err == nil {
 		return string(base)
 	}
 	return ""
@@ -97,12 +97,12 @@ func (wf *GithubWorkflow) SetBaseUrl(url string) error {
 	if ok := gitUrlPattern.MatchString(url); !ok {
 		return errPatternMismatch
 	}
-	return wf.Data.Store(ghBaseUrlKey, []byte(url))
+	return wf.Data.Store(wfBaseUrlKey, []byte(url))
 }
 
 // GetToken retrieves the API token from user's keychain.
 func (wf *GithubWorkflow) GetToken() (string, error) {
-	return wf.Keychain.Get(ghAuthTokenKey)
+	return wf.Keychain.Get(wfAuthTokenKey)
 }
 
 // SetToken sets the API token in user's keychain, and invalidates cache with github user login.
@@ -112,13 +112,13 @@ func (wf *GithubWorkflow) SetToken(token string) error {
 	}
 
 	// remove previously cached login and PRs
-	for _, itm := range []string{ghUserInfoKey, ghPullRequestsKey} {
+	for _, itm := range []string{wfUserInfoKey, wfPullRequestsKey} {
 		if err := wf.Cache.Store(itm, nil); err != nil {
 			log.Println(err)
 		}
 	}
 
-	return wf.Keychain.Set(ghAuthTokenKey, token)
+	return wf.Keychain.Set(wfAuthTokenKey, token)
 }
 
 // LaunchBackgroundTask starts a workflow task in the background (if it is not running already).
@@ -139,7 +139,7 @@ func (wf *GithubWorkflow) DisplayPRs(attemptsLeft int) error {
 		return err
 	}
 
-	if wf.Cache.Expired(ghPullRequestsKey, time.Hour) {
+	if wf.Cache.Expired(wfPullRequestsKey, time.Hour) {
 		return &updateNeeded{
 			"could not load pull requests - try running ghpr-update manually",
 			attemptsLeft - 1,
@@ -147,7 +147,7 @@ func (wf *GithubWorkflow) DisplayPRs(attemptsLeft int) error {
 	}
 
 	var prs []github.Issue
-	if err = wf.Cache.LoadJSON(ghPullRequestsKey, &prs); err != nil {
+	if err = wf.Cache.LoadJSON(wfPullRequestsKey, &prs); err != nil {
 		return err
 	}
 
@@ -199,7 +199,7 @@ func (wf *GithubWorkflow) FetchPRs() error {
 
 	var user github.User
 	err = wf.Cache.LoadOrStoreJSON(
-		ghUserInfoKey,
+		wfUserInfoKey,
 		time.Hour,
 		func() (interface{}, error) {
 			u, _, err := client.Users.Get(ctx, "")
@@ -226,7 +226,7 @@ func (wf *GithubWorkflow) FetchPRs() error {
 		}
 	}()
 
-	return wf.Cache.StoreJSON(ghPullRequestsKey, deduplicateAndSort(prs))
+	return wf.Cache.StoreJSON(wfPullRequestsKey, deduplicateAndSort(prs))
 }
 
 // FetchPRStatus gets the review status of pull requests from GitHub.
@@ -239,7 +239,7 @@ func (wf *GithubWorkflow) FetchPRStatus() error {
 	}
 
 	var prs []github.Issue
-	if err = wf.Cache.LoadJSON(ghPullRequestsKey, &prs); err != nil {
+	if err = wf.Cache.LoadJSON(wfPullRequestsKey, &prs); err != nil {
 		return err
 	}
 
@@ -365,7 +365,7 @@ func (wf *GithubWorkflow) HandleUpdateNeeded(upd *updateNeeded) {
 		Valid(false)
 
 	wf.Rerun(rerunDelay.Seconds())
-	wf.Var(ghRetryAttemptEnvVar, strconv.Itoa(upd.attemptsLeft))
+	wf.Var(wfRetryAttemptEnvVar, strconv.Itoa(upd.attemptsLeft))
 
 	if err := wf.LaunchBackgroundTask(cmdUpdate); err != nil {
 		log.Println("failed to launch update task:", err)
@@ -379,7 +379,7 @@ func (wf *GithubWorkflow) HandleError(e error) {
 		return
 	}
 
-	wf.Var(ghErrOccurredEnvVar, "true")
+	wf.Var(wfErrOccurredEnvVar, "true")
 
 	switch e {
 	case kc.ErrNotFound:
