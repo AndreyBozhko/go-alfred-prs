@@ -61,7 +61,7 @@ var (
 	errUnknownCmd      = errors.New("unknown command")
 )
 
-// Wrapper around aw.Workflow.
+// GithubWorkflow is a wrapper around aw.Workflow.
 type GithubWorkflow struct {
 	*aw.Workflow
 }
@@ -104,7 +104,7 @@ func (wf *GithubWorkflow) GetToken() (string, error) {
 	return wf.Keychain.Get(wfAuthTokenKey)
 }
 
-// SetToken sets the API token in user's keychain, and invalidates cache with github user login.
+// SetToken sets the API token in user's keychain, and invalidates cache with GitHub user login.
 func (wf *GithubWorkflow) SetToken(token string) error {
 	if token == "" {
 		return errTokenEmpty

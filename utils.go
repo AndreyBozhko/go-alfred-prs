@@ -23,7 +23,7 @@ var (
 	ghHtmlUrlPattern = regexp.MustCompile(`^https://[a-z.]+.com/(.+)/pull/\d+$`)
 )
 
-// parseRepoFromUrl extracts 'org/repo' substring from the HTML URL of a github issue.
+// parseRepoFromUrl extracts 'org/repo' substring from the HTML URL of a GitHub issue.
 func parseRepoFromUrl(htmlUrl string) string {
 	match := ghHtmlUrlPattern.FindStringSubmatch(htmlUrl)
 	if match != nil {
@@ -32,23 +32,23 @@ func parseRepoFromUrl(htmlUrl string) string {
 	return ""
 }
 
-// deduplicateAndSort returns unique github issues from the slice, sorted by the update timestamp.
+// deduplicateAndSort returns unique GitHub issues from the slice, sorted by the update timestamp.
 func deduplicateAndSort(prs []*github.Issue) []*github.Issue {
-	var rslt []*github.Issue
+	var result []*github.Issue
 
 	seen := make(map[int64]bool)
 	for _, item := range prs {
 		if _, ok := seen[*item.ID]; !ok {
 			seen[*item.ID] = true
-			rslt = append(rslt, item)
+			result = append(result, item)
 		}
 	}
 
-	sort.Slice(rslt, func(i, j int) bool {
-		return rslt[i].UpdatedAt.After(*rslt[j].UpdatedAt)
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].UpdatedAt.After(*result[j].UpdatedAt)
 	})
 
-	return rslt
+	return result
 }
 
 // parseReviewState summarizes the reviews of a pull request in a single string.
@@ -65,7 +65,7 @@ func parseReviewState(reviews []github.PullRequestReview) string {
 		}
 	}
 
-	var rslt string
+	var result string
 
 	mapping := map[string]string{
 		"APPROVED":          "✅",
@@ -73,13 +73,13 @@ func parseReviewState(reviews []github.PullRequestReview) string {
 	}
 
 	for _, v := range seen {
-		rslt += mapping[*v.State]
+		result += mapping[*v.State]
 	}
 
-	return rslt
+	return result
 }
 
-// newGithubClient creates a github client which uses
+// newGithubClient creates a GitHub client which uses
 // provided url and API token to connect to GitHub.
 func newGithubClient(ctx context.Context, url, token string) (*github.Client, error) {
 	httpclient := oauth2.NewClient(ctx, oauth2.StaticTokenSource(
