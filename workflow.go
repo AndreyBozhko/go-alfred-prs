@@ -49,7 +49,7 @@ const (
 
 // Common regex patterns used by the workflow.
 var (
-	gitUrlPattern = regexp.MustCompile("^https://api.[a-z.]+.com$")
+	gitUrlPattern = regexp.MustCompile(`^https://api.[a-z.]+.com$`)
 )
 
 // Common workflow errors.
@@ -164,7 +164,7 @@ func (wf *GithubWorkflow) DisplayPRs(attemptsLeft int) error {
 			reviewState = parseReviewState(reviews)
 		}
 
-		wf.NewItem(*pr.Title + reviewState).
+		wf.NewItem(strings.TrimSpace(*pr.Title + " " + reviewState)).
 			Subtitle(fmt.Sprintf("%s#%d by %s, %s",
 				parseRepoFromUrl(*pr.HTMLURL),
 				*pr.Number,

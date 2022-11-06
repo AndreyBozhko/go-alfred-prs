@@ -2,8 +2,8 @@ package main
 
 import (
 	"context"
+	"regexp"
 	"sort"
-	"strings"
 
 	"github.com/google/go-github/v48/github"
 	"golang.org/x/oauth2"
@@ -19,24 +19,27 @@ func (e *updateNeeded) Error() string {
 	return e.message
 }
 
+var (
+	ghHtmlUrlPattern = regexp.MustCompile(`^https://[a-z.]+.com/(.+)/pull/\d+$`)
+)
+
 // parseRepoFromUrl extracts 'org/repo' substring from the HTML URL of a github issue.
 func parseRepoFromUrl(htmlUrl string) string {
-	project := htmlUrl
-
-	project, _, _ = strings.Cut(project, "/pull")
-	_, project, _ = strings.Cut(project, ".com/")
-
-	return project
+	match := ghHtmlUrlPattern.FindStringSubmatch(htmlUrl)
+	if match != nil {
+		return match[1]
+	}
+	return ""
 }
 
 // deduplicateAndSort returns unique github issues from the slice, sorted by the update timestamp.
 func deduplicateAndSort(prs []*github.Issue) []*github.Issue {
 	var rslt []*github.Issue
 
-	seen := make(map[string]bool)
+	seen := make(map[int64]bool)
 	for _, item := range prs {
-		if _, ok := seen[*item.HTMLURL]; !ok {
-			seen[*item.HTMLURL] = true
+		if _, ok := seen[*item.ID]; !ok {
+			seen[*item.ID] = true
 			rslt = append(rslt, item)
 		}
 	}
@@ -52,6 +55,10 @@ func deduplicateAndSort(prs []*github.Issue) []*github.Issue {
 func parseReviewState(reviews []github.PullRequestReview) string {
 	seen := make(map[string]github.PullRequestReview)
 	for _, item := range reviews {
+		if *item.State == "COMMENTED" {
+			continue
+		}
+
 		v := seen[*item.User.Login]
 		if item.GetSubmittedAt().After(v.GetSubmittedAt()) {
 			seen[*item.User.Login] = item
@@ -60,19 +67,16 @@ func parseReviewState(reviews []github.PullRequestReview) string {
 
 	var rslt string
 
-	for _, v := range seen {
-		switch *v.State {
-		case "APPROVED":
-			rslt += "✅"
-		case "CHANGES_REQUESTED":
-			rslt += "❌"
-		}
+	mapping := map[string]string{
+		"APPROVED":          "✅",
+		"CHANGES_REQUESTED": "❌",
 	}
 
-	if rslt == "" {
-		return ""
+	for _, v := range seen {
+		rslt += mapping[*v.State]
 	}
-	return " " + rslt
+
+	return rslt
 }
 
 // newGithubClient creates a github client which uses
