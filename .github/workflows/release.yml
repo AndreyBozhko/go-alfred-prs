@@ -39,12 +39,15 @@ jobs:
           go run tools/package.go build dist
       
       - name: Push new tag
+        id: tags
         run: |
           TAG=v$(cat version)
           git tag $TAG
           git push origin $TAG
+          echo "latest_tag=$TAG" >> $GITHUB_OUTPUT
 
       - name: Publish
         uses: softprops/action-gh-release@v1
         with:
           files: dist/*.alfredworkflow
+          tag_name: ${{ steps.tags.outputs.latest_tag }}
