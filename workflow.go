@@ -42,6 +42,7 @@ const (
 	wfErrOccurredEnvVar  = "GH_ERROR_OCCURRED"
 	wfRetryAttemptEnvVar = "GH_ATTEMPTS_LEFT"
 	wfRoleFiltersEnvVar  = "QUERY_BY_ROLES"
+	wfShowReviewsEnvVar  = "SHOW_REVIEWS"
 )
 
 // Common time and duration parameters used by the workflow.
@@ -68,8 +69,9 @@ var (
 type GithubWorkflow struct {
 	*aw.Workflow
 
-	cacheMaxAge time.Duration
-	roleFilters []string
+	cacheMaxAge  time.Duration
+	roleFilters  []string
+	fetchReviews bool
 }
 
 var workflow *GithubWorkflow
@@ -82,9 +84,10 @@ func init() {
 	}
 
 	workflow = &GithubWorkflow{
-		Workflow:    aw.New(),
-		cacheMaxAge: getCacheMaxAge(),
-		roleFilters: getRoleFilters(),
+		Workflow:     aw.New(),
+		cacheMaxAge:  getCacheMaxAge(),
+		roleFilters:  getRoleFilters(),
+		fetchReviews: getShowReviews(),
 	}
 }
 
@@ -121,6 +124,11 @@ func getRoleFilters() []string {
 	}
 
 	return result
+}
+
+// getShowReviews returns flag that enables or disables showing PR reviews.
+func getShowReviews() bool {
+	return strings.ToLower(os.Getenv(wfShowReviewsEnvVar)) == "true"
 }
 
 // GetBaseApiUrl retrieves API URL of the GitHub instance from workflow data.
@@ -263,11 +271,13 @@ func (wf *GithubWorkflow) FetchPRs() error {
 		prs = append(prs, issues.Issues...)
 	}
 
-	defer func() {
-		if err := wf.LaunchBackgroundTask(cmdUpdateStatus); err != nil {
-			log.Println("failed to launch update task:", err)
-		}
-	}()
+	if wf.fetchReviews {
+		defer func() {
+			if err := wf.LaunchBackgroundTask(cmdUpdateStatus); err != nil {
+				log.Println("failed to launch update task:", err)
+			}
+		}()
+	}
 
 	return wf.Cache.StoreJSON(wfPullRequestsKey, deduplicateAndSort(prs))
 }
