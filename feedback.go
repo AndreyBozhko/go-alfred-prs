@@ -56,3 +56,17 @@ func (wf *GithubWorkflow) FatalError(e error) {
 
 	wf.Workflow.Fatal(msg)
 }
+
+func (wf *GithubWorkflow) InfoEmpty(title, subtitle string) {
+	if !wf.IsEmpty() {
+		return
+	}
+
+	wf.Feedback.Clear()
+
+	wf.NewItem(title).
+		Subtitle(subtitle).
+		Icon(aw.IconInfo)
+
+	wf.SendFeedback()
+}

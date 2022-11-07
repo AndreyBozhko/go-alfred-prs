@@ -236,7 +236,7 @@ func (wf *GithubWorkflow) DisplayPRs(attemptsLeft int) error {
 	}
 
 	// fallback in case cache exists, but prs is empty
-	wf.WarnEmpty("No pull requests were found :(", "")
+	wf.InfoEmpty("No pull requests were found :(", "")
 
 	return nil
 }
@@ -423,6 +423,7 @@ func (wf *GithubWorkflow) HandleUpdateNeeded(upd *retryableError) {
 
 	wf.NewItem("Fetching pull requests from GitHub...").
 		Subtitle(fmt.Sprintf("will retry a few times - %d attempt(s) left", upd.attemptsLeft)).
+		Icon(aw.IconSync).
 		Valid(false)
 
 	wf.Rerun(rerunDelayDefault.Seconds())
