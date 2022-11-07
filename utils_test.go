@@ -118,6 +118,13 @@ func TestParseReviewState(t *testing.T) {
 	}
 
 	for _, testcase := range data {
-		assert.Equal(t, testcase.expected, parseReviewState(testcase.reviews))
+		actual := parseReviewState(testcase.reviews)
+		assert.Equal(t, testcase.expected, sorted(actual))
 	}
+}
+
+func sorted(input string) string {
+	result := []rune(input)
+	sort.Slice(result, func(i, j int) bool { return result[i] < result[j] })
+	return string(result)
 }
