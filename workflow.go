@@ -147,11 +147,17 @@ func (wf *GithubWorkflow) GetBaseWebUrl() string {
 	return "https://github.com"
 }
 
-// SetBaseUrl stores URL of the GitHub instance as workflow data.
+// SetBaseUrl stores URL of the GitHub instance as workflow data, and invalidates workflow cache.
 func (wf *GithubWorkflow) SetBaseUrl(url string) error {
 	if ok := gitUrlPattern.MatchString(url); !ok {
 		return errPatternMismatch
 	}
+
+	// remove previously cached username and PRs
+	if err := wf.ClearCache(); err != nil {
+		return err
+	}
+
 	return wf.Data.Store(wfBaseUrlKey, []byte(url))
 }
 
@@ -160,17 +166,15 @@ func (wf *GithubWorkflow) GetToken() (string, error) {
 	return wf.Keychain.Get(wfAuthTokenKey)
 }
 
-// SetToken sets the API token in user's keychain, and invalidates cache with GitHub user login.
+// SetToken saves the API token in user's keychain, and invalidates workflow cache.
 func (wf *GithubWorkflow) SetToken(token string) error {
 	if token == "" {
 		return errTokenEmpty
 	}
 
-	// remove previously cached login and PRs
-	for _, itm := range []string{wfUserInfoKey, wfPullRequestsKey} {
-		if err := wf.Cache.Store(itm, nil); err != nil {
-			log.Println(err)
-		}
+	// remove previously cached username and PRs
+	if err := wf.ClearCache(); err != nil {
+		return err
 	}
 
 	return wf.Keychain.Set(wfAuthTokenKey, token)
@@ -194,16 +198,9 @@ func (wf *GithubWorkflow) DisplayPRs(attemptsLeft int) error {
 		return err
 	}
 
-	if wf.Cache.Expired(wfPullRequestsKey, wf.cacheMaxAge) {
-		return &updateNeeded{
-			"could not load pull requests - try running ghpr-update manually",
-			attemptsLeft - 1,
-		}
-	}
-
 	var prs []github.Issue
 	if err = wf.Cache.LoadJSON(wfPullRequestsKey, &prs); err != nil {
-		return err
+		log.Println(err)
 	}
 
 	zone, _ := time.LoadLocation("Local")
@@ -230,7 +227,14 @@ func (wf *GithubWorkflow) DisplayPRs(attemptsLeft int) error {
 			Valid(true)
 	}
 
-	// fallback in case prs is empty
+	if wf.Cache.Expired(wfPullRequestsKey, wf.cacheMaxAge) {
+		return &updateNeeded{
+			"could not load pull requests - try running ghpr-update manually",
+			attemptsLeft - 1,
+		}
+	}
+
+	// fallback in case cache exists, but prs is empty
 	wf.WarnEmpty("No pull requests were found :(", "")
 
 	return nil
@@ -254,7 +258,7 @@ func (wf *GithubWorkflow) FetchPRs() error {
 	var user github.User
 	err = wf.Cache.LoadOrStoreJSON(
 		wfUserInfoKey,
-		time.Hour,
+		0,
 		func() (interface{}, error) {
 			u, _, err := client.Users.Get(ctx, "")
 			return u, err
@@ -416,7 +420,7 @@ func (wf *GithubWorkflow) HandleUpdateNeeded(upd *updateNeeded) {
 		wf.FatalError(upd)
 	}
 
-	wf.NewItem("Loading...").
+	wf.NewItem("Fetching pull requests from GitHub...").
 		Subtitle(fmt.Sprintf("will retry a few times - %d attempt(s) left", upd.attemptsLeft)).
 		Valid(false)
 

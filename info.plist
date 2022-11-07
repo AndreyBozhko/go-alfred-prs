@@ -116,7 +116,7 @@
 	<key>createdby</key>
 	<string>Andrey Bozhko</string>
 	<key>description</key>
-	<string></string>
+	<string>GitHub pull request workflow for Alfred 4</string>
 	<key>disabled</key>
 	<false/>
 	<key>name</key>
@@ -149,7 +149,7 @@
 				<key>queuemode</key>
 				<integer>1</integer>
 				<key>runningsubtext</key>
-				<string>Fetching pull requests from github...</string>
+				<string>Fetching pull requests from GitHub...</string>
 				<key>script</key>
 				<string>if [[ "$prev_output" == *"GH_ERROR_OCCURRED"* ]]; then
 
@@ -470,7 +470,7 @@ fi
 		<string>involves</string>
 	</dict>
 	<key>version</key>
-	<string></string>
+	<string>VERSION_PLACEHOLDER</string>
 	<key>webaddress</key>
 	<string>https://github.com/AndreyBozhko/go-alfred-prs</string>
 </dict>
