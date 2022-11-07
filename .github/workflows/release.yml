@@ -9,7 +9,7 @@ on:
 
 jobs:
   release:
-    if: github.repository == 'AndreyBozhko/go-ghpr'
+    if: github.repository == 'AndreyBozhko/go-alfred-prs'
     runs-on: macos-latest
     steps:
       - name: Install Go

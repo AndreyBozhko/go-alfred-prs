@@ -1,1 +1,1 @@
-# go-ghpr
+# go-alfred-prs
