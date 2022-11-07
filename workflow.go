@@ -228,8 +228,9 @@ func (wf *GithubWorkflow) DisplayPRs(attemptsLeft int) error {
 	}
 
 	if wf.Cache.Expired(wfPullRequestsKey, wf.cacheMaxAge) {
-		return &updateNeeded{
-			"could not load pull requests - try running ghpr-update manually",
+		return &retryableError{
+			"Could not load pull requests :(",
+			"try running ghpr-update manually",
 			attemptsLeft - 1,
 		}
 	}
@@ -415,7 +416,7 @@ func (wf *GithubWorkflow) HandleMissingToken() {
 }
 
 // HandleUpdateNeeded retries 'update' task, if allowed by the attempt limit.
-func (wf *GithubWorkflow) HandleUpdateNeeded(upd *updateNeeded) {
+func (wf *GithubWorkflow) HandleUpdateNeeded(upd *retryableError) {
 	if upd.attemptsLeft <= 0 {
 		wf.FatalError(upd)
 	}
@@ -434,7 +435,7 @@ func (wf *GithubWorkflow) HandleUpdateNeeded(upd *updateNeeded) {
 
 // HandleError converts workflow errors to Alfred feedback items.
 func (wf *GithubWorkflow) HandleError(e error) {
-	if upd, ok := e.(*updateNeeded); ok {
+	if upd, ok := e.(*retryableError); ok {
 		wf.HandleUpdateNeeded(upd)
 		return
 	}

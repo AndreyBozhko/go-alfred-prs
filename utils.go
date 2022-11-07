@@ -9,16 +9,6 @@ import (
 	"golang.org/x/oauth2"
 )
 
-// updateNeeded is an error that holds extra information such as number of remaining attempts.
-type updateNeeded struct {
-	message      string
-	attemptsLeft int
-}
-
-func (e *updateNeeded) Error() string {
-	return e.message
-}
-
 var (
 	ghHtmlUrlPattern = regexp.MustCompile(`^https://[a-z.]+.com/([a-zA-Z0-9/_\-]+)/pull/\d+$`)
 )

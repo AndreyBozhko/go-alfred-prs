@@ -27,7 +27,7 @@ jobs:
       - name: Compile
         run: |
           for arch in amd64 arm64 ; do
-            GOARCH=$arch go build -ldflags "-s -w" -o go-ghpr-$arch workflow.go utils.go
+            GOARCH=$arch go build -ldflags "-s -w" -o go-ghpr-$arch *.go
           done
 
           lipo -create -output go-ghpr go-ghpr-amd64 go-ghpr-arm64
