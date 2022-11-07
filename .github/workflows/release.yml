@@ -29,20 +29,18 @@ jobs:
           for arch in amd64 arm64 ; do
             GOARCH=$arch go build -ldflags "-s -w" -o go-ghpr-$arch workflow.go utils.go
           done
+
+          lipo -create -output go-ghpr go-ghpr-amd64 go-ghpr-arm64
       
       - name: Package
         env:
           alfred_version: 4
           alfred_preferences: ./tools/prefs.json
         run: |
+          export alfred_workflow_version=v$(cat version)+macosx_universal
           mkdir build && mkdir dist
-          cp LICENSE README.md icon.png info.plist version build/
-
-          for arch in amd64 arm64 ; do
-            export alfred_workflow_version=v$(cat version)-$arch
-            cp go-ghpr-$arch build/go-ghpr
-            go run tools/package.go build dist
-          done
+          cp LICENSE README.md go-ghpr icon.png info.plist version build/
+          go run tools/package.go build dist
       
       - name: Push new tag
         id: tags
