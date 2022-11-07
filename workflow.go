@@ -141,7 +141,10 @@ func (wf *GithubWorkflow) GetBaseApiUrl() string {
 
 // GetBaseWebUrl retrieves web URL of the GitHub instance from workflow data.
 func (wf *GithubWorkflow) GetBaseWebUrl() string {
-	return strings.ReplaceAll(wf.GetBaseApiUrl(), "https://api.", "https://")
+	if base := wf.GetBaseApiUrl(); base != "" {
+		return strings.ReplaceAll(base, "https://api.", "https://")
+	}
+	return "https://github.com"
 }
 
 // SetBaseUrl stores URL of the GitHub instance as workflow data.
