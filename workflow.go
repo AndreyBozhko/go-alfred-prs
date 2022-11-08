@@ -33,14 +33,25 @@ const (
 	wfPullRequestsKey = "gh-pull-requests"
 )
 
-// Environment variables used by the workflow.
+// Variables that can be set in the workflow feedback.
 const (
-	wfCacheMaxAgeEnvVar  = "CACHE_AGE_SECONDS"
-	wfErrOccurredEnvVar  = "GH_ERROR_OCCURRED"
-	wfGitBaseUrlEnvVar   = "GIT_BASE_URL"
-	wfRetryAttemptEnvVar = "GH_ATTEMPTS_LEFT"
-	wfRoleFiltersEnvVar  = "QUERY_BY_ROLES"
-	wfShowReviewsEnvVar  = "SHOW_REVIEWS"
+	fbAttemptsLeftKey  = "GH_ATTEMPTS_LEFT"
+	fbErrorOccurredKey = "GH_ERROR_OCCURRED"
+)
+
+// Environment variables used by the workflow.
+var (
+	envVars = struct {
+		cacheMaxAge string
+		gitBaseUrl  string
+		roleFilters string
+		showReviews string
+	}{
+		os.Getenv("CACHE_AGE_SECONDS"),
+		os.Getenv("GIT_BASE_URL"),
+		os.Getenv("QUERY_BY_ROLES"),
+		os.Getenv("SHOW_REVIEWS"),
+	}
 )
 
 // Common time and duration parameters used by the workflow.
@@ -92,7 +103,7 @@ func init() {
 
 // getCacheMaxAge returns the max age configuration for the workflow cache.
 func getCacheMaxAge() time.Duration {
-	if age, err := strconv.Atoi(os.Getenv(wfCacheMaxAgeEnvVar)); err == nil {
+	if age, err := strconv.Atoi(envVars.cacheMaxAge); err == nil {
 		return time.Duration(age) * time.Second
 	}
 
@@ -111,7 +122,7 @@ func getRoleFilters() []string {
 
 	var result []string
 
-	filters := strings.Split(os.Getenv(wfRoleFiltersEnvVar), ",")
+	filters := strings.Split(envVars.roleFilters, ",")
 	for _, f := range filters {
 		if _, ok := knownRoleFilters[f]; ok {
 			result = append(result, f)
@@ -127,17 +138,15 @@ func getRoleFilters() []string {
 
 // getShowReviews returns flag that enables or disables showing PR reviews.
 func getShowReviews() bool {
-	return strings.ToLower(os.Getenv(wfShowReviewsEnvVar)) == "true"
+	return strings.ToLower(envVars.showReviews) == "true"
 }
 
 // configureBaseUrl parses git url from an environment variable and updates the workflow.
 func (wf *GithubWorkflow) configureBaseUrl() error {
-	url := os.Getenv(wfGitBaseUrlEnvVar)
-	if url == "" {
+	u := os.Getenv(envVars.gitBaseUrl)
+	if u == "" {
 		return errMissingUrl
 	}
-
-	u := url
 
 	u = strings.TrimPrefix(u, "https://")
 	u = strings.TrimPrefix(u, "api.")
@@ -147,7 +156,7 @@ func (wf *GithubWorkflow) configureBaseUrl() error {
 	}
 
 	if !gitUrlPattern.MatchString(u) {
-		return fmt.Errorf("expected pattern %s: invalid github url '%s'", gitUrlPattern.String(), url)
+		return fmt.Errorf("expected pattern %s: invalid github url '%s'", gitUrlPattern.String(), envVars.gitBaseUrl)
 	}
 
 	wf.gitApiUrl = u
@@ -385,8 +394,8 @@ func (wf *GithubWorkflow) HandleMissingToken() {
 		Icon(aw.IconWeb)
 }
 
-// HandleUpdateNeeded retries 'update' task, if allowed by the attempt limit.
-func (wf *GithubWorkflow) HandleUpdateNeeded(upd *retryableError) {
+// MaybeLaunchUpdate retries 'update' task, if allowed by the attempt limit.
+func (wf *GithubWorkflow) MaybeLaunchUpdate(upd *retryableError) {
 	if upd.attemptsLeft <= 0 {
 		wf.FatalError(upd)
 	}
@@ -397,7 +406,7 @@ func (wf *GithubWorkflow) HandleUpdateNeeded(upd *retryableError) {
 		Valid(false)
 
 	wf.Rerun(rerunDelayDefault.Seconds())
-	wf.Var(wfRetryAttemptEnvVar, strconv.Itoa(upd.attemptsLeft))
+	wf.Var(fbAttemptsLeftKey, strconv.Itoa(upd.attemptsLeft))
 
 	if err := wf.LaunchBackgroundTask(cmdUpdate); err != nil {
 		log.Println("failed to launch update task:", err)
@@ -407,11 +416,11 @@ func (wf *GithubWorkflow) HandleUpdateNeeded(upd *retryableError) {
 // HandleError converts workflow errors to Alfred feedback items.
 func (wf *GithubWorkflow) HandleError(e error) {
 	if upd, ok := e.(*retryableError); ok {
-		wf.HandleUpdateNeeded(upd)
+		wf.MaybeLaunchUpdate(upd)
 		return
 	}
 
-	wf.Var(wfErrOccurredEnvVar, "true")
+	wf.Var(fbErrorOccurredKey, "true")
 
 	switch e {
 	case kc.ErrNotFound:
