@@ -26,20 +26,13 @@ jobs:
       
       - name: Compile
         run: |
-          for arch in amd64 arm64 ; do
-            GOARCH=$arch go build -ldflags "-s -w" -o go-ghpr-$arch *.go
-          done
-
-          lipo -create -output go-ghpr go-ghpr-amd64 go-ghpr-arm64
+          GOOS=darwin GOARCH=amd64 go build -ldflags "-s -w" -o go-ghpr *.go
       
       - name: Package
         env:
           alfred_version: 4
           alfred_preferences: ./tools/prefs.json
         run: |
-          export TAG=v$(cat version)
-          sed -i .bak s/VERSION_PLACEHOLDER/$TAG/g info.plist
-
           mkdir build && mkdir dist
           cp LICENSE README.md go-ghpr icon.png info.plist version build/
           go run tools/package.go build dist

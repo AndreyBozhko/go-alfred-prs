@@ -7,8 +7,9 @@ import (
 	aw "github.com/deanishe/awgo"
 )
 
-// FeedbackError represents an
-type FeedbackItem interface {
+// AlfredMessage is a two-part message which can be
+// displayed by Alfred as title and subtitle.
+type AlfredMessage interface {
 	Title() string
 	Subtitle() string
 }
@@ -34,12 +35,13 @@ func (e *retryableError) Subtitle() string {
 
 // FatalError overrides the default workflow handling of errors.
 func (wf *GithubWorkflow) FatalError(e error) {
-	if fi, ok := e.(FeedbackItem); ok {
+	if am, ok := e.(AlfredMessage); ok {
 		wf.Feedback.Clear()
-		wf.NewItem(fi.Title()).Subtitle(fi.Subtitle()).Icon(aw.IconError)
+		wf.NewItem(am.Title()).Subtitle(am.Subtitle()).Icon(aw.IconError)
 		wf.SendFeedback()
 
 		log.Printf("[ERROR] %s", e.Error())
+		return
 	}
 
 	msg := e.Error()
