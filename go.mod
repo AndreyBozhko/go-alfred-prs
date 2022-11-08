@@ -5,7 +5,7 @@ go 1.19
 require (
 	github.com/deanishe/awgo v0.29.1
 	github.com/google/go-github/v48 v48.0.0
-	github.com/stretchr/testify v1.7.0
+	github.com/stretchr/testify v1.8.1
 	golang.org/x/oauth2 v0.1.0
 )
 
@@ -23,6 +23,6 @@ require (
 	golang.org/x/text v0.4.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
-	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 	howett.net/plist v0.0.0-20201203080718-1454fab16a06 // indirect
 )
