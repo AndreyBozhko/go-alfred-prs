@@ -10,8 +10,28 @@ import (
 // AlfredMessage is a two-part message which can be
 // displayed by Alfred as title and subtitle.
 type AlfredMessage interface {
-	Title() string
-	Subtitle() string
+	Parts() (title, subtitle string)
+}
+
+// alfredError wraps an error and enables splitting
+// its message into title and subtitle.
+type alfredError struct {
+	wrapped error
+}
+
+func (e *alfredError) Error() string {
+	return e.wrapped.Error()
+}
+
+func (e *alfredError) Parts() (string, string) {
+	msg := e.Error()
+	idx := strings.LastIndex(msg, ": ")
+
+	if len(msg) < 60 || idx < 0 {
+		return msg, ""
+	}
+
+	return msg[idx+2:], msg[:idx]
 }
 
 // retryableError is an error that holds extra information such as number of remaining attempts.
@@ -25,46 +45,33 @@ func (e *retryableError) Error() string {
 	return e.message + " - " + e.hint
 }
 
-func (e *retryableError) Title() string {
-	return e.message
-}
-
-func (e *retryableError) Subtitle() string {
-	return e.hint
+func (e *retryableError) Parts() (string, string) {
+	return e.message, e.hint
 }
 
 // FatalError overrides the default workflow handling of errors.
 func (wf *GithubWorkflow) FatalError(e error) {
-	if am, ok := e.(AlfredMessage); ok {
-		wf.Feedback.Clear()
-		wf.NewItem(am.Title()).Subtitle(am.Subtitle()).Icon(aw.IconError)
-		wf.SendFeedback()
-
-		log.Printf("[ERROR] %s", e.Error())
-		return
+	am, ok := e.(AlfredMessage)
+	if !ok {
+		am = &alfredError{e}
 	}
 
-	msg := e.Error()
-	idx := strings.LastIndex(msg, ": ")
+	title, subtitle := am.Parts()
 
-	if len(msg) >= 60 && idx >= 0 {
-		title, subtitle := msg[idx+2:], msg[:idx]
-		wf.Feedback.Clear()
-		wf.NewItem(title).Subtitle(subtitle).Icon(aw.IconError)
-		wf.SendFeedback()
+	wf.Feedback.Clear()
+	wf.NewItem(title).
+		Subtitle(subtitle).
+		Icon(aw.IconError)
+	wf.SendFeedback()
 
-		log.Printf("[ERROR] %s", e.Error())
-	}
-
-	wf.Workflow.Fatal(msg)
+	log.Printf("[ERROR] %s", e.Error())
 }
 
+// InfoEmpty adds an info item to feedback if there are no other items.
 func (wf *GithubWorkflow) InfoEmpty(title, subtitle string) {
 	if !wf.IsEmpty() {
 		return
 	}
-
-	wf.Feedback.Clear()
 
 	wf.NewItem(title).
 		Subtitle(subtitle).

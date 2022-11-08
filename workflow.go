@@ -21,25 +21,23 @@ import (
 // Commands that the workflow can run.
 const (
 	cmdAuth         = "auth"
-	cmdBaseUrl      = "base_url"
 	cmdDisplay      = "display"
 	cmdUpdate       = "update"
 	cmdUpdateStatus = "update_status"
-	cmdUrlChoices   = "url_choices"
 )
 
 // Cache keys used by the workflow.
 const (
 	wfAuthTokenKey    = "gh-auth-token"
-	wfBaseUrlKey      = "gh-base-url"
 	wfUserInfoKey     = "gh-user-info"
 	wfPullRequestsKey = "gh-pull-requests"
 )
 
 // Environment variables used by the workflow.
 const (
-	wfCacheMaxAgeEnvVar  = "CACHE_MAX_AGE"
+	wfCacheMaxAgeEnvVar  = "CACHE_AGE_SECONDS"
 	wfErrOccurredEnvVar  = "GH_ERROR_OCCURRED"
+	wfGitBaseUrlEnvVar   = "GIT_BASE_URL"
 	wfRetryAttemptEnvVar = "GH_ATTEMPTS_LEFT"
 	wfRoleFiltersEnvVar  = "QUERY_BY_ROLES"
 	wfShowReviewsEnvVar  = "SHOW_REVIEWS"
@@ -53,16 +51,16 @@ const (
 
 // Common regex patterns used by the workflow.
 var (
-	gitUrlPattern = regexp.MustCompile(`^https://api.[a-z.]+.com$`)
+	gitUrlPattern = regexp.MustCompile(`^(https://)?(api.)?[a-z.]+\.com$`)
 )
 
 // Common workflow errors.
 var (
-	errMissingArgs     = errors.New("wrong number of arguments passed")
-	errPatternMismatch = errors.New("url does not match pattern " + gitUrlPattern.String())
-	errTaskRunning     = errors.New("task is already running")
-	errTokenEmpty      = errors.New("token must not be empty")
-	errUnknownCmd      = errors.New("unknown command")
+	errMissingArgs = errors.New("wrong number of arguments passed")
+	errMissingUrl  = errors.New("github url is not set")
+	errTaskRunning = errors.New("task is already running")
+	errTokenEmpty  = errors.New("token must not be empty")
+	errUnknownCmd  = errors.New("unknown command")
 )
 
 // GithubWorkflow is a wrapper around aw.Workflow.
@@ -72,6 +70,7 @@ type GithubWorkflow struct {
 	cacheMaxAge  time.Duration
 	roleFilters  []string
 	fetchReviews bool
+	gitApiUrl    string
 }
 
 var workflow *GithubWorkflow
@@ -131,34 +130,33 @@ func getShowReviews() bool {
 	return strings.ToLower(os.Getenv(wfShowReviewsEnvVar)) == "true"
 }
 
-// GetBaseApiUrl retrieves API URL of the GitHub instance from workflow data.
-func (wf *GithubWorkflow) GetBaseApiUrl() string {
-	if base, err := wf.Data.Load(wfBaseUrlKey); err == nil {
-		return string(base)
+// configureBaseUrl parses git url from an environment variable and updates the workflow.
+func (wf *GithubWorkflow) configureBaseUrl() error {
+	url := os.Getenv(wfGitBaseUrlEnvVar)
+	if url == "" {
+		return errMissingUrl
 	}
-	return ""
+
+	u := url
+
+	u = strings.TrimPrefix(u, "https://")
+	u = strings.TrimPrefix(u, "api.")
+
+	if u != "" {
+		u = "https://api." + u
+	}
+
+	if !gitUrlPattern.MatchString(u) {
+		return fmt.Errorf("expected pattern %s: invalid github url '%s'", gitUrlPattern.String(), url)
+	}
+
+	wf.gitApiUrl = u
+	return nil
 }
 
 // GetBaseWebUrl retrieves web URL of the GitHub instance from workflow data.
 func (wf *GithubWorkflow) GetBaseWebUrl() string {
-	if base := wf.GetBaseApiUrl(); base != "" {
-		return strings.ReplaceAll(base, "https://api.", "https://")
-	}
-	return "https://github.com"
-}
-
-// SetBaseUrl stores URL of the GitHub instance as workflow data, and invalidates workflow cache.
-func (wf *GithubWorkflow) SetBaseUrl(url string) error {
-	if ok := gitUrlPattern.MatchString(url); !ok {
-		return errPatternMismatch
-	}
-
-	// remove previously cached username and PRs
-	if err := wf.ClearCache(); err != nil {
-		return err
-	}
-
-	return wf.Data.Store(wfBaseUrlKey, []byte(url))
+	return strings.ReplaceAll(wf.gitApiUrl, "https://api.", "https://")
 }
 
 // GetToken retrieves the API token from user's keychain.
@@ -251,7 +249,7 @@ func (wf *GithubWorkflow) FetchPRs() error {
 		return err
 	}
 
-	client, err := newGithubClient(ctx, wf.GetBaseApiUrl(), token)
+	client, err := newGithubClient(ctx, wf.gitApiUrl, token)
 	if err != nil {
 		return err
 	}
@@ -304,7 +302,7 @@ func (wf *GithubWorkflow) FetchPRStatus() error {
 		return err
 	}
 
-	client, err := newGithubClient(ctx, wf.GetBaseApiUrl(), token)
+	client, err := newGithubClient(ctx, wf.gitApiUrl, token)
 	if err != nil {
 		return err
 	}
@@ -342,34 +340,6 @@ func (wf *GithubWorkflow) FetchPRStatus() error {
 	return nil
 }
 
-// DisplayUrlChoices sends the GitHub URL options to Alfred as feedback items.
-func (wf *GithubWorkflow) DisplayUrlChoices(url string) error {
-	u := url
-
-	u = strings.TrimPrefix(u, "https://")
-	u = strings.TrimPrefix(u, "api.")
-
-	if u != "" {
-		u = "https://api." + u
-
-		if gitUrlPattern.MatchString(u) {
-			wf.NewItem(url).
-				Subtitle("Set URL as " + u).
-				Arg(u).
-				Valid(true)
-		} else {
-			wf.NewWarningItem(url, u+" does not match pattern "+gitUrlPattern.String())
-		}
-	}
-
-	wf.NewItem("(Default) github.com").
-		Subtitle("Set URL as https://api.github.com").
-		Arg("https://api.github.com").
-		Valid(true)
-
-	return nil
-}
-
 // run executes the workflow logic. It delegates to
 // concrete workflow methods, based on parsed command line arguments.
 func run() error {
@@ -384,11 +354,13 @@ func run() error {
 
 	cmd, arg := args[0], args[1]
 
+	if err := workflow.configureBaseUrl(); err != nil {
+		return err
+	}
+
 	switch cmd {
 	case cmdAuth:
 		return workflow.SetToken(arg)
-	case cmdBaseUrl:
-		return workflow.SetBaseUrl(arg)
 	case cmdDisplay:
 		attempt, _ := strconv.Atoi(arg)
 		return workflow.DisplayPRs(attempt)
@@ -396,8 +368,6 @@ func run() error {
 		return workflow.FetchPRs()
 	case cmdUpdateStatus:
 		return workflow.FetchPRStatus()
-	case cmdUrlChoices:
-		return workflow.DisplayUrlChoices(arg)
 	default:
 		return errUnknownCmd
 	}
