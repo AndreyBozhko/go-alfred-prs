@@ -29,6 +29,7 @@ const (
 // Cache keys used by the workflow.
 const (
 	wfAuthTokenKey    = "gh-auth-token"
+	wfBaseUrlKey      = "gh-base-url"
 	wfUserInfoKey     = "gh-user-info"
 	wfPullRequestsKey = "gh-pull-requests"
 )
@@ -141,9 +142,10 @@ func getShowReviews() bool {
 	return strings.ToLower(envVars.showReviews) == "true"
 }
 
-// configureBaseUrl parses git url from an environment variable and updates the workflow.
+// configureBaseUrl parses git url from an environment variable,
+// updates the workflow, and invalidates workflow cache if needed.
 func (wf *GithubWorkflow) configureBaseUrl() error {
-	u := os.Getenv(envVars.gitBaseUrl)
+	u := envVars.gitBaseUrl
 	if u == "" {
 		return errMissingUrl
 	}
@@ -160,6 +162,22 @@ func (wf *GithubWorkflow) configureBaseUrl() error {
 	}
 
 	wf.gitApiUrl = u
+
+	// remove previously cached username and PRs
+	// if current git url does not match cached url
+	prevUrl, err := wf.Cache.Load(wfBaseUrlKey)
+	if err == nil && string(prevUrl) == u {
+		return nil
+	}
+
+	if err = wf.ClearCache(); err != nil {
+		return err
+	}
+
+	if err = wf.Cache.Store(wfBaseUrlKey, []byte(u)); err != nil {
+		return err
+	}
+
 	return nil
 }
 
