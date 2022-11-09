@@ -69,7 +69,6 @@ var (
 
 // Common workflow errors.
 var (
-	errMissingArgs = errors.New("wrong number of arguments passed")
 	errMissingUrl  = errors.New("github url is not set")
 	errTaskRunning = errors.New("task is already running")
 	errTokenEmpty  = errors.New("token must not be empty")
@@ -355,6 +354,29 @@ func (wf *GithubWorkflow) LaunchUpdateTask(upd *retryableError) {
 
 var workflow *GithubWorkflow
 
+const help = `
+Alfred workflow for GitHub pull requests
+
+Usage:
+	go-ghpr [command]
+
+Available Commands:
+	auth          set API token
+	display       display pull requests
+	update        update pull requests
+	update_status update review status of pull requests
+`
+
+// init displays the help message if no command line arguments were passed,
+// passed and terminates the program. Otherwise, the package initialization
+// continues in the second init func.
+func init() {
+	if len(os.Args) < 2 {
+		println(strings.TrimSpace(help))
+		os.Exit(0)
+	}
+}
+
 // init creates the default workflow.
 func init() {
 	if _, err := os.Stat(aw.IconWarning.Value); err != nil {
@@ -371,14 +393,11 @@ func init() {
 	}
 }
 
-// run executes the workflow logic. It delegates to
-// concrete workflow methods, based on parsed command line arguments.
+// run executes the workflow logic. It delegates to concrete
+// workflow methods, based on parsed command line arguments.
 func run() error {
 	args := workflow.Args()
 
-	if len(args) < 1 {
-		return errMissingArgs
-	}
 	if len(args) == 1 {
 		args = append(args, "")
 	}
