@@ -308,7 +308,7 @@ fi
 				<key>argumenttype</key>
 				<integer>0</integer>
 				<key>keyword</key>
-				<string>ghpr-host</string>
+				<string>ghpr-url</string>
 				<key>subtext</key>
 				<string>Example: github.com   Current: {var:GIT_BASE_URL}</string>
 				<key>text</key>

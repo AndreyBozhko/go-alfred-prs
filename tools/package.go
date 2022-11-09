@@ -2,9 +2,14 @@ package main
 
 import (
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/deanishe/awgo/util/build"
+)
+
+var (
+	xmlTags = regexp.MustCompile(`<\/?\w+?>`)
 )
 
 func readFile(name string) (text string, err error) {
@@ -32,6 +37,8 @@ func updateInfoPlist(folder string) error {
 	if err != nil {
 		return err
 	}
+
+	readme = xmlTags.ReplaceAllLiteralString(readme, "")
 
 	txt = strings.ReplaceAll(txt, "VERSION_PLACEHOLDER", strings.TrimSpace(version))
 	txt = strings.ReplaceAll(txt, "README_PLACEHOLDER", strings.TrimSpace(readme))
