@@ -23,6 +23,45 @@ func TestParseRepoFromUrl(t *testing.T) {
 	}
 }
 
+func TestParseRoleFilters(t *testing.T) {
+	data := []struct {
+		input    string
+		expected []string
+	}{
+		{
+			"+author",
+			[]string{"author"},
+		},
+		{
+			"-author",
+			[]string{},
+		},
+		{
+			"+assignee,+author,+involves,+mentions,+review-requested",
+			[]string{"assignee", "author", "involves", "mentions", "review-requested"},
+		},
+		{
+			"+author,+assignee,-involves,+mentions,-review-requested",
+			[]string{"assignee", "author", "mentions"},
+		},
+		{
+			"+author,+author,-author,+mentions",
+			[]string{"mentions"},
+		},
+		{
+			"-author,-assignee,+involves,+assignee",
+			[]string{"assignee", "involves"},
+		},
+	}
+
+	for _, testcase := range data {
+		actual := parseRoleFilters(testcase.input)
+		sort.Strings(actual)
+
+		assert.Equal(t, testcase.expected, actual)
+	}
+}
+
 func TestDeduplicateAndSort(t *testing.T) {
 
 	issue := func(id int64, upd time.Time) *github.Issue {

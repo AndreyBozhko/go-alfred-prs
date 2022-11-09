@@ -351,7 +351,7 @@ fi
 		<key>GIT_BASE_URL</key>
 		<string>github.com</string>
 		<key>QUERY_BY_ROLES</key>
-		<string>involves</string>
+		<string>-assignee,-author,+involves,-mentions,-review-requested</string>
 		<key>SHOW_REVIEWS</key>
 		<string>false</string>
 	</dict>

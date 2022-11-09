@@ -62,7 +62,9 @@ const (
 
 // Common regex patterns used by the workflow.
 var (
-	gitUrlPattern = regexp.MustCompile(`^(https://)?(api.)?[a-z.]+\.com$`)
+	gitUrlPattern      = regexp.MustCompile(`^(https://)?(api.)?[a-z.]+\.com$`)
+	roleFiltersPattern = regexp.MustCompile(`^([+-](assignee|author|involves|mentions|review-requested),?)*$`)
+	singleRolePattern  = regexp.MustCompile(`(([+-])(assignee|author|involves|mentions|review-requested))`)
 )
 
 // Common workflow errors.
@@ -93,30 +95,17 @@ func getCacheMaxAge() time.Duration {
 	return cacheMaxAgeDefault
 }
 
-// getRoleFilters returns user roles which will be used to search for open pull requests.
-func getRoleFilters() []string {
-	knownRoleFilters := map[string]struct{}{
-		"author":           {},
-		"assignee":         {},
-		"involves":         {},
-		"mentions":         {},
-		"review-requested": {},
+// configureRoleFilters returns user roles which will be used to search for open pull requests.
+func (wf *GithubWorkflow) configureRoleFilters() error {
+	input := envVars.roleFilters
+
+	if ok := roleFiltersPattern.MatchString(input); !ok {
+		return fmt.Errorf("expected pattern %s: invalid config '%s'", roleFiltersPattern.String(), input)
 	}
 
-	var result []string
+	wf.roleFilters = parseRoleFilters(input)
 
-	filters := strings.Split(envVars.roleFilters, ",")
-	for _, f := range filters {
-		if _, ok := knownRoleFilters[f]; ok {
-			result = append(result, f)
-		}
-	}
-
-	if len(result) == 0 {
-		result = append(result, "involves")
-	}
-
-	return result
+	return nil
 }
 
 // getShowReviews returns flag that enables or disables showing PR reviews.
@@ -376,7 +365,7 @@ func init() {
 	workflow = &GithubWorkflow{
 		Workflow:     aw.New(),
 		cacheMaxAge:  getCacheMaxAge(),
-		roleFilters:  getRoleFilters(),
+		roleFilters:  []string{},
 		fetchReviews: getShowReviews(),
 		gitApiUrl:    "",
 	}
@@ -397,6 +386,9 @@ func run() error {
 	cmd, arg := args[0], args[1]
 
 	if err := workflow.configureBaseUrl(); err != nil {
+		return err
+	}
+	if err := workflow.configureRoleFilters(); err != nil {
 		return err
 	}
 

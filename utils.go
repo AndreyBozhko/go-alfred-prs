@@ -22,6 +22,26 @@ func parseRepoFromUrl(htmlUrl string) string {
 	return ""
 }
 
+// parseRoleFilters analyzes configuration string
+// and extracts roles that are enabled.
+func parseRoleFilters(roles string) []string {
+	result := make([]string, 0)
+
+	seen := make(map[string]string)
+	for _, match := range singleRolePattern.FindAllStringSubmatch(roles, -1) {
+		flag, role := match[2], match[3]
+		seen[role] = flag
+	}
+
+	for role, flag := range seen {
+		if flag == "+" {
+			result = append(result, role)
+		}
+	}
+
+	return result
+}
+
 // deduplicateAndSort returns unique GitHub issues from the slice, sorted by the update timestamp.
 func deduplicateAndSort(prs []*github.Issue) []*github.Issue {
 	var result []*github.Issue
