@@ -60,6 +60,19 @@
 				<false/>
 			</dict>
 		</array>
+		<key>619768E5-4121-4395-B863-5599C9ACDECE</key>
+		<array>
+			<dict>
+				<key>destinationuid</key>
+				<string>CE9787F6-8B10-43E5-A0D0-90C1CE28092F</string>
+				<key>modifiers</key>
+				<integer>0</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+		</array>
 		<key>61EF92D5-BC03-49C1-815D-790CA55C39C0</key>
 		<array>
 			<dict>
@@ -97,6 +110,52 @@
 	<string>Github PRs</string>
 	<key>objects</key>
 	<array>
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>argumenttype</key>
+				<integer>2</integer>
+				<key>keyword</key>
+				<string>ghpr-update</string>
+				<key>subtext</key>
+				<string></string>
+				<key>text</key>
+				<string>Update pull requests</string>
+				<key>withspace</key>
+				<false/>
+			</dict>
+			<key>type</key>
+			<string>alfred.workflow.input.keyword</string>
+			<key>uid</key>
+			<string>0014591A-7E4E-4DE5-9B32-DF77AC50897B</string>
+			<key>version</key>
+			<integer>1</integer>
+		</dict>
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>concurrently</key>
+				<false/>
+				<key>escaping</key>
+				<integer>102</integer>
+				<key>script</key>
+				<string>query=$1
+
+./go-ghpr update</string>
+				<key>scriptargtype</key>
+				<integer>1</integer>
+				<key>scriptfile</key>
+				<string></string>
+				<key>type</key>
+				<integer>5</integer>
+			</dict>
+			<key>type</key>
+			<string>alfred.workflow.action.script</string>
+			<key>uid</key>
+			<string>21F5CB11-5A49-4E68-8983-B93FB5601B3F</string>
+			<key>version</key>
+			<integer>2</integer>
+		</dict>
 		<dict>
 			<key>config</key>
 			<dict>
@@ -141,7 +200,7 @@ fi
 				<key>scriptargtype</key>
 				<integer>1</integer>
 				<key>scriptfile</key>
-				<string>main.py</string>
+				<string></string>
 				<key>subtext</key>
 				<string></string>
 				<key>title</key>
@@ -200,52 +259,6 @@ fi
 		<dict>
 			<key>config</key>
 			<dict>
-				<key>argumenttype</key>
-				<integer>2</integer>
-				<key>keyword</key>
-				<string>ghpr-update</string>
-				<key>subtext</key>
-				<string></string>
-				<key>text</key>
-				<string>Update pull requests</string>
-				<key>withspace</key>
-				<false/>
-			</dict>
-			<key>type</key>
-			<string>alfred.workflow.input.keyword</string>
-			<key>uid</key>
-			<string>0014591A-7E4E-4DE5-9B32-DF77AC50897B</string>
-			<key>version</key>
-			<integer>1</integer>
-		</dict>
-		<dict>
-			<key>config</key>
-			<dict>
-				<key>concurrently</key>
-				<false/>
-				<key>escaping</key>
-				<integer>102</integer>
-				<key>script</key>
-				<string>query=$1
-
-./go-ghpr update</string>
-				<key>scriptargtype</key>
-				<integer>1</integer>
-				<key>scriptfile</key>
-				<string>update_data.py</string>
-				<key>type</key>
-				<integer>5</integer>
-			</dict>
-			<key>type</key>
-			<string>alfred.workflow.action.script</string>
-			<key>uid</key>
-			<string>21F5CB11-5A49-4E68-8983-B93FB5601B3F</string>
-			<key>version</key>
-			<integer>2</integer>
-		</dict>
-		<dict>
-			<key>config</key>
-			<dict>
 				<key>concurrently</key>
 				<false/>
 				<key>escaping</key>
@@ -257,7 +270,7 @@ fi
 				<key>scriptargtype</key>
 				<integer>1</integer>
 				<key>scriptfile</key>
-				<string>auth.py</string>
+				<string></string>
 				<key>type</key>
 				<integer>5</integer>
 			</dict>
@@ -289,6 +302,57 @@ fi
 			<key>version</key>
 			<integer>1</integer>
 		</dict>
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>argumenttype</key>
+				<integer>0</integer>
+				<key>keyword</key>
+				<string>ghpr-host</string>
+				<key>subtext</key>
+				<string>Example: github.com   Current: {var:GIT_BASE_URL}</string>
+				<key>text</key>
+				<string>Configure custom GitHub URL</string>
+				<key>withspace</key>
+				<true/>
+			</dict>
+			<key>type</key>
+			<string>alfred.workflow.input.keyword</string>
+			<key>uid</key>
+			<string>619768E5-4121-4395-B863-5599C9ACDECE</string>
+			<key>version</key>
+			<integer>1</integer>
+		</dict>
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>concurrently</key>
+				<false/>
+				<key>escaping</key>
+				<integer>68</integer>
+				<key>script</key>
+				<string>on run argv
+    set bundleID to (system attribute "alfred_workflow_bundleid")
+    set token to (item 1 of argv)
+
+    tell application id "com.runningwithcrayons.Alfred"
+        set configuration "GIT_BASE_URL" to value token in workflow bundleID with exportable
+    end tell
+end run</string>
+				<key>scriptargtype</key>
+				<integer>1</integer>
+				<key>scriptfile</key>
+				<string></string>
+				<key>type</key>
+				<integer>6</integer>
+			</dict>
+			<key>type</key>
+			<string>alfred.workflow.action.script</string>
+			<key>uid</key>
+			<string>CE9787F6-8B10-43E5-A0D0-90C1CE28092F</string>
+			<key>version</key>
+			<integer>2</integer>
+		</dict>
 	</array>
 	<key>readme</key>
 	<string>README_PLACEHOLDER</string>
@@ -297,51 +361,65 @@ fi
 		<key>0014591A-7E4E-4DE5-9B32-DF77AC50897B</key>
 		<dict>
 			<key>xpos</key>
-			<integer>260</integer>
+			<integer>65</integer>
 			<key>ypos</key>
-			<integer>280</integer>
+			<integer>60</integer>
 		</dict>
 		<key>21F5CB11-5A49-4E68-8983-B93FB5601B3F</key>
 		<dict>
 			<key>xpos</key>
-			<integer>475</integer>
+			<integer>285</integer>
 			<key>ypos</key>
-			<integer>280</integer>
+			<integer>60</integer>
 		</dict>
 		<key>346BCF98-8899-4C0C-B8EA-869276295464</key>
 		<dict>
 			<key>xpos</key>
-			<integer>255</integer>
+			<integer>65</integer>
 			<key>ypos</key>
-			<integer>580</integer>
+			<integer>255</integer>
 		</dict>
 		<key>3A3CAEA1-B6DE-4749-8751-85F1571E0807</key>
 		<dict>
 			<key>xpos</key>
-			<integer>260</integer>
+			<integer>745</integer>
 			<key>ypos</key>
-			<integer>65</integer>
+			<integer>160</integer>
 		</dict>
 		<key>59DD8AED-61F1-4902-B480-79CA423A1A6C</key>
 		<dict>
 			<key>xpos</key>
-			<integer>475</integer>
+			<integer>995</integer>
 			<key>ypos</key>
+			<integer>160</integer>
+		</dict>
+		<key>619768E5-4121-4395-B863-5599C9ACDECE</key>
+		<dict>
+			<key>xpos</key>
 			<integer>65</integer>
+			<key>ypos</key>
+			<integer>455</integer>
 		</dict>
 		<key>61EF92D5-BC03-49C1-815D-790CA55C39C0</key>
 		<dict>
 			<key>xpos</key>
-			<integer>70</integer>
+			<integer>610</integer>
 			<key>ypos</key>
-			<integer>180</integer>
+			<integer>190</integer>
 		</dict>
 		<key>C4011055-B46E-4722-8271-F4346602D4E2</key>
 		<dict>
 			<key>xpos</key>
-			<integer>475</integer>
+			<integer>290</integer>
 			<key>ypos</key>
-			<integer>580</integer>
+			<integer>255</integer>
+		</dict>
+		<key>CE9787F6-8B10-43E5-A0D0-90C1CE28092F</key>
+		<dict>
+			<key>xpos</key>
+			<integer>295</integer>
+			<key>ypos</key>
+			<integer>455</integer>
 		</dict>
 	</dict>
 	<key>variables</key>
@@ -355,6 +433,8 @@ fi
 		<key>SHOW_REVIEWS</key>
 		<string>false</string>
 	</dict>
+	<key>variablesdontexport</key>
+	<array/>
 	<key>version</key>
 	<string>VERSION_PLACEHOLDER</string>
 	<key>webaddress</key>
