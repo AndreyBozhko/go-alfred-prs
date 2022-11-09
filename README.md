@@ -7,7 +7,8 @@ A Golang port of [GitHub PR workflow][1] for [Alfred][2].
 This workflow is powered by **[AwGo][4]** and **[go-github][5]**.
 
 The original GitHub PR workflow was developed in Python 2 which reached its end-of-life on Jan 1st, 2020.
-Also, Apple no longer bundles Python 2 in macOS since macOS 12.3 Monterey.
+
+And to add to that, Apple no longer bundles Python 2 in macOS since macOS 12.3 Monterey.
 
 ### Features
 * shows you all relevant pull requests (the ones you want to see anyway)
@@ -23,10 +24,15 @@ Also, Apple no longer bundles Python 2 in macOS since macOS 12.3 Monterey.
 * **`ghpr-auth`** - set your GitHub API token
 
 ## Workflow Environment Variables
-- **`CACHE_AGE_SECONDS`** - TTL for internal cache of pull requests (default is `600`)
-- **`GIT_BASE_URL`** - url of the GitHub instance (default is `github.com`)
-- **`QUERY_BY_ROLES`** - filter for the displayed pull requests (default is `-assignee,-author,+involves,-mentions,-review-requested`)
-- **`SHOW_REVIEWS`** - flag to enable displaying PR reviews (default is `false`)
+- **`CACHE_AGE_SECONDS`** - TTL for internal cache of pull requests
+  - default = `600`
+- **`GIT_BASE_URL`** - url of the GitHub instance
+  - default = `github.com`
+- **`QUERY_BY_ROLES`** - filter for the displayed pull requests
+  - default = `-assignee,-author,+involves,-mentions,-review-requested`
+  - the selections can be toggled by using `+` or `-` prefixes in front of each role
+- **`SHOW_REVIEWS`** - flag to enable displaying PR reviews
+  - default = `false`
 
 ## Release process
 A new release is automatically published by GitHub Actions when the change to the workflow [version](version) is detected.
@@ -47,8 +53,14 @@ To install Rosetta for the first time on a Mac with Apple silicon, run the comma
 </details>
 
 ## Other GitHub workflows for Alfred
-* https://github.com/gharlan/alfred-github-workflow (all batteries included, requires php runtime, stores API token in a SQLite db)
-* https://github.com/edgarjs/alfred-github-repos (requires ruby, stores API token in workflow env)
+* https://github.com/gharlan/alfred-github-workflow
+  * 🔥 a workflow with all batteries included
+  * 🤷‍♂️ stores API token in a SQLite db
+  * requires PHP runtime
+* https://github.com/edgarjs/alfred-github-repos
+  * 🔎 a workflow for searching github repos and PRs
+  * 🚨 stores API token in workflow environment
+  * requires Ruby runtime
 
 
 [1]: https://github.com/renuo/alfred-pr-workflow
