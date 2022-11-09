@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	aw "github.com/deanishe/awgo"
+	kc "github.com/deanishe/awgo/keychain"
 )
 
 // AlfredMessage is a two-part message which can be
@@ -78,4 +79,33 @@ func (wf *GithubWorkflow) InfoEmpty(title, subtitle string) {
 		Icon(aw.IconInfo)
 
 	wf.SendFeedback()
+}
+
+// HandleError converts workflow errors to Alfred feedback items.
+func (wf *GithubWorkflow) HandleError(e error) {
+	if upd, ok := e.(*retryableError); ok && upd.attemptsLeft > 0 {
+		wf.LaunchUpdateTask(upd)
+		return
+	}
+
+	wf.Var(fbErrorOccurredKey, "true")
+
+	switch e {
+	case kc.ErrNotFound:
+		wf.HandleMissingToken()
+	default:
+		wf.FatalError(e)
+	}
+}
+
+// HandleMissingToken indicates to user that the API token is not set.
+func (wf *GithubWorkflow) HandleMissingToken() {
+	wf.NewWarningItem("No API key set", "Please use ghpr-auth to set you GitHub personal token")
+
+	tokenUrl := wf.GetBaseWebUrl() + "/settings/tokens/new"
+	wf.NewItem("Generate new token on GitHub").
+		Subtitle(tokenUrl).
+		Arg(tokenUrl + "?description=go-ghpr&scopes=repo").
+		Valid(true).
+		Icon(aw.IconWeb)
 }

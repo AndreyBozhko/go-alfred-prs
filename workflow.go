@@ -14,7 +14,6 @@ import (
 	"time"
 
 	aw "github.com/deanishe/awgo"
-	kc "github.com/deanishe/awgo/keychain"
 	"github.com/google/go-github/v48/github"
 )
 
@@ -83,23 +82,6 @@ type GithubWorkflow struct {
 	roleFilters  []string
 	fetchReviews bool
 	gitApiUrl    string
-}
-
-var workflow *GithubWorkflow
-
-// init creates the default workflow.
-func init() {
-	if _, err := os.Stat(aw.IconWarning.Value); err != nil {
-		// substitute icon if it doesn't exist
-		aw.IconWarning = aw.IconError
-	}
-
-	workflow = &GithubWorkflow{
-		Workflow:     aw.New(),
-		cacheMaxAge:  getCacheMaxAge(),
-		roleFilters:  getRoleFilters(),
-		fetchReviews: getShowReviews(),
-	}
 }
 
 // getCacheMaxAge returns the max age configuration for the workflow cache.
@@ -203,17 +185,6 @@ func (wf *GithubWorkflow) SetToken(token string) error {
 	}
 
 	return wf.Keychain.Set(wfAuthTokenKey, token)
-}
-
-// LaunchBackgroundTask starts a workflow task in the background (if it is not running already).
-func (wf *GithubWorkflow) LaunchBackgroundTask(task string, arg ...string) error {
-	log.Printf("Launching task '%s' in background...", task)
-	if wf.IsRunning(task) {
-		return errTaskRunning
-	}
-
-	cmdArgs := append([]string{task}, arg...)
-	return wf.RunInBackground(task, exec.Command(os.Args[0], cmdArgs...))
 }
 
 // DisplayPRs sends the list of pull requests to Alfred as feedback items.
@@ -367,6 +338,50 @@ func (wf *GithubWorkflow) FetchPRStatus() error {
 	return nil
 }
 
+// LaunchBackgroundTask starts a workflow task in the background (if it is not running already).
+func (wf *GithubWorkflow) LaunchBackgroundTask(task string, arg ...string) error {
+	log.Printf("Launching task '%s' in background...", task)
+	if wf.IsRunning(task) {
+		return errTaskRunning
+	}
+
+	cmdArgs := append([]string{task}, arg...)
+	return wf.RunInBackground(task, exec.Command(os.Args[0], cmdArgs...))
+}
+
+// LaunchUpdateTask retries 'update' task, if allowed by the attempt limit.
+func (wf *GithubWorkflow) LaunchUpdateTask(upd *retryableError) {
+	wf.NewItem("Fetching pull requests from GitHub...").
+		Subtitle(fmt.Sprintf("will retry a few times - %d attempt(s) left", upd.attemptsLeft)).
+		Icon(aw.IconSync).
+		Valid(false)
+
+	wf.Rerun(rerunDelayDefault.Seconds())
+	wf.Var(fbAttemptsLeftKey, strconv.Itoa(upd.attemptsLeft))
+
+	if err := wf.LaunchBackgroundTask(cmdUpdate); err != nil {
+		log.Println("failed to launch update task:", err)
+	}
+}
+
+var workflow *GithubWorkflow
+
+// init creates the default workflow.
+func init() {
+	if _, err := os.Stat(aw.IconWarning.Value); err != nil {
+		// substitute icon if it doesn't exist
+		aw.IconWarning = aw.IconError
+	}
+
+	workflow = &GithubWorkflow{
+		Workflow:     aw.New(),
+		cacheMaxAge:  getCacheMaxAge(),
+		roleFilters:  getRoleFilters(),
+		fetchReviews: getShowReviews(),
+		gitApiUrl:    "",
+	}
+}
+
 // run executes the workflow logic. It delegates to
 // concrete workflow methods, based on parsed command line arguments.
 func run() error {
@@ -397,54 +412,6 @@ func run() error {
 		return workflow.FetchPRStatus()
 	default:
 		return errUnknownCmd
-	}
-}
-
-// HandleMissingToken indicates to user that the API token is not set.
-func (wf *GithubWorkflow) HandleMissingToken() {
-	wf.NewWarningItem("No API key set", "Please use ghpr-auth to set you GitHub personal token")
-
-	tokenUrl := wf.GetBaseWebUrl() + "/settings/tokens/new"
-	wf.NewItem("Generate new token on GitHub").
-		Subtitle(tokenUrl).
-		Arg(tokenUrl + "?description=go-ghpr&scopes=repo").
-		Valid(true).
-		Icon(aw.IconWeb)
-}
-
-// MaybeLaunchUpdate retries 'update' task, if allowed by the attempt limit.
-func (wf *GithubWorkflow) MaybeLaunchUpdate(upd *retryableError) {
-	if upd.attemptsLeft <= 0 {
-		wf.FatalError(upd)
-	}
-
-	wf.NewItem("Fetching pull requests from GitHub...").
-		Subtitle(fmt.Sprintf("will retry a few times - %d attempt(s) left", upd.attemptsLeft)).
-		Icon(aw.IconSync).
-		Valid(false)
-
-	wf.Rerun(rerunDelayDefault.Seconds())
-	wf.Var(fbAttemptsLeftKey, strconv.Itoa(upd.attemptsLeft))
-
-	if err := wf.LaunchBackgroundTask(cmdUpdate); err != nil {
-		log.Println("failed to launch update task:", err)
-	}
-}
-
-// HandleError converts workflow errors to Alfred feedback items.
-func (wf *GithubWorkflow) HandleError(e error) {
-	if upd, ok := e.(*retryableError); ok {
-		wf.MaybeLaunchUpdate(upd)
-		return
-	}
-
-	wf.Var(fbErrorOccurredKey, "true")
-
-	switch e {
-	case kc.ErrNotFound:
-		wf.HandleMissingToken()
-	default:
-		wf.FatalError(e)
 	}
 }
 
