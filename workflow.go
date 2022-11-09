@@ -99,7 +99,7 @@ func (wf *GithubWorkflow) configureRoleFilters() error {
 	input := envVars.roleFilters
 
 	if ok := roleFiltersPattern.MatchString(input); !ok {
-		return fmt.Errorf("expected pattern %s: invalid config '%s'", roleFiltersPattern.String(), input)
+		return &alfredError{"invalid config: " + input, "expected something like +author,+review-requested"}
 	}
 
 	wf.roleFilters = parseRoleFilters(input)
@@ -128,7 +128,7 @@ func (wf *GithubWorkflow) configureBaseUrl() error {
 	}
 
 	if !gitUrlPattern.MatchString(u) {
-		return fmt.Errorf("expected pattern %s: invalid github url '%s'", gitUrlPattern.String(), envVars.gitBaseUrl)
+		return &alfredError{"invalid github url: " + envVars.gitBaseUrl, "expected something like github.com"}
 	}
 
 	wf.gitApiUrl = u
@@ -212,7 +212,7 @@ func (wf *GithubWorkflow) DisplayPRs(attemptsLeft int) error {
 	}
 
 	if wf.Cache.Expired(wfPullRequestsKey, wf.cacheMaxAge) {
-		return &retryableError{
+		return &retryable{
 			"Could not load pull requests :(",
 			"try running ghpr-update manually",
 			attemptsLeft - 1,
@@ -338,14 +338,14 @@ func (wf *GithubWorkflow) LaunchBackgroundTask(task string, arg ...string) error
 }
 
 // LaunchUpdateTask retries 'update' task, if allowed by the attempt limit.
-func (wf *GithubWorkflow) LaunchUpdateTask(upd *retryableError) {
+func (wf *GithubWorkflow) LaunchUpdateTask(attemptsLeft int) {
 	wf.NewItem("Fetching pull requests from GitHub...").
-		Subtitle(fmt.Sprintf("will retry a few times - %d attempt(s) left", upd.attemptsLeft)).
+		Subtitle(fmt.Sprintf("will retry a few times - %d attempt(s) left", attemptsLeft)).
 		Icon(aw.IconSync).
 		Valid(false)
 
 	wf.Rerun(rerunDelayDefault.Seconds())
-	wf.Var(fbAttemptsLeftKey, strconv.Itoa(upd.attemptsLeft))
+	wf.Var(fbAttemptsLeftKey, strconv.Itoa(attemptsLeft))
 
 	if err := wf.LaunchBackgroundTask(cmdUpdate); err != nil {
 		log.Println("failed to launch update task:", err)

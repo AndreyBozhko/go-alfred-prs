@@ -14,39 +14,46 @@ type AlfredMessage interface {
 	Parts() (title, subtitle string)
 }
 
-// alfredError wraps an error and enables splitting
-// its message into title and subtitle.
+// alfredError stores the error message
+// as title and subtitle.
 type alfredError struct {
-	wrapped error
+	title, subtitle string
 }
 
 func (e *alfredError) Error() string {
-	return e.wrapped.Error()
+	return e.title + "\n" + e.subtitle
 }
 
 func (e *alfredError) Parts() (string, string) {
+	return e.title, e.subtitle
+}
+
+// makeAlfredError creates an alfredError from any error
+// by splitting its message into two parts.
+func makeAlfredError(e error) *alfredError {
 	msg := e.Error()
 	idx := strings.LastIndex(msg, ": ")
 
 	if len(msg) < 60 || idx < 0 {
-		return msg, ""
+		return &alfredError{msg, ""}
 	}
 
-	return msg[idx+2:], msg[:idx]
+	return &alfredError{msg[idx+2:], msg[:idx]}
 }
 
-// retryableError is an error that holds extra information such as number of remaining attempts.
-type retryableError struct {
+// retryable is an error that holds extra information
+// such as number of remaining attempts.
+type retryable struct {
 	message      string
 	hint         string
 	attemptsLeft int
 }
 
-func (e *retryableError) Error() string {
+func (e *retryable) Error() string {
 	return e.message + " - " + e.hint
 }
 
-func (e *retryableError) Parts() (string, string) {
+func (e *retryable) Parts() (string, string) {
 	return e.message, e.hint
 }
 
@@ -54,7 +61,7 @@ func (e *retryableError) Parts() (string, string) {
 func (wf *GithubWorkflow) FatalError(e error) {
 	am, ok := e.(AlfredMessage)
 	if !ok {
-		am = &alfredError{e}
+		am = makeAlfredError(e)
 	}
 
 	title, subtitle := am.Parts()
@@ -83,8 +90,8 @@ func (wf *GithubWorkflow) InfoEmpty(title, subtitle string) {
 
 // HandleError converts workflow errors to Alfred feedback items.
 func (wf *GithubWorkflow) HandleError(e error) {
-	if upd, ok := e.(*retryableError); ok && upd.attemptsLeft > 0 {
-		wf.LaunchUpdateTask(upd)
+	if upd, ok := e.(*retryable); ok && upd.attemptsLeft > 0 {
+		wf.LaunchUpdateTask(upd.attemptsLeft)
 		return
 	}
 
