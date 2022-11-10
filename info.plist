@@ -51,7 +51,7 @@
 		<array>
 			<dict>
 				<key>destinationuid</key>
-				<string>59DD8AED-61F1-4902-B480-79CA423A1A6C</string>
+				<string>ADDC7EEC-657D-447A-8B5C-1F3E427DEB64</string>
 				<key>modifiers</key>
 				<integer>0</integer>
 				<key>modifiersubtext</key>
@@ -78,6 +78,31 @@
 			<dict>
 				<key>destinationuid</key>
 				<string>3A3CAEA1-B6DE-4749-8751-85F1571E0807</string>
+				<key>modifiers</key>
+				<integer>0</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+		</array>
+		<key>ADDC7EEC-657D-447A-8B5C-1F3E427DEB64</key>
+		<array>
+			<dict>
+				<key>destinationuid</key>
+				<string>1765ABE5-EF4E-4780-AA92-C174F2AEA8F6</string>
+				<key>modifiers</key>
+				<integer>0</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>sourceoutputuid</key>
+				<string>0576D847-CB9C-42A7-A4A2-20572177B19C</string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+			<dict>
+				<key>destinationuid</key>
+				<string>59DD8AED-61F1-4902-B480-79CA423A1A6C</string>
 				<key>modifiers</key>
 				<integer>0</integer>
 				<key>modifiersubtext</key>
@@ -139,9 +164,7 @@
 				<key>escaping</key>
 				<integer>102</integer>
 				<key>script</key>
-				<string>query=$1
-
-./go-ghpr update</string>
+				<string>./go-ghpr --update $1</string>
 				<key>scriptargtype</key>
 				<integer>1</integer>
 				<key>scriptfile</key>
@@ -153,6 +176,29 @@
 			<string>alfred.workflow.action.script</string>
 			<key>uid</key>
 			<string>21F5CB11-5A49-4E68-8983-B93FB5601B3F</string>
+			<key>version</key>
+			<integer>2</integer>
+		</dict>
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>concurrently</key>
+				<false/>
+				<key>escaping</key>
+				<integer>102</integer>
+				<key>script</key>
+				<string>./go-ghpr $1</string>
+				<key>scriptargtype</key>
+				<integer>1</integer>
+				<key>scriptfile</key>
+				<string></string>
+				<key>type</key>
+				<integer>5</integer>
+			</dict>
+			<key>type</key>
+			<string>alfred.workflow.action.script</string>
+			<key>uid</key>
+			<string>1765ABE5-EF4E-4780-AA92-C174F2AEA8F6</string>
 			<key>version</key>
 			<integer>2</integer>
 		</dict>
@@ -192,8 +238,7 @@ EOB
 
 else
 
-attempts_left=${GH_ATTEMPTS_LEFT:-3}
-./go-ghpr display $attempts_left
+./go-ghpr --display --attempts=${GH_ATTEMPTS_LEFT:-3} $1
 
 fi
 </string>
@@ -220,19 +265,30 @@ fi
 		<dict>
 			<key>config</key>
 			<dict>
-				<key>browser</key>
-				<string></string>
-				<key>spaces</key>
-				<string></string>
-				<key>url</key>
-				<string>{query}</string>
-				<key>utf8</key>
-				<true/>
+				<key>conditions</key>
+				<array>
+					<dict>
+						<key>inputstring</key>
+						<string></string>
+						<key>matchcasesensitive</key>
+						<false/>
+						<key>matchmode</key>
+						<integer>0</integer>
+						<key>matchstring</key>
+						<string>workflow:update</string>
+						<key>outputlabel</key>
+						<string>update</string>
+						<key>uid</key>
+						<string>0576D847-CB9C-42A7-A4A2-20572177B19C</string>
+					</dict>
+				</array>
+				<key>elselabel</key>
+				<string>else</string>
 			</dict>
 			<key>type</key>
-			<string>alfred.workflow.action.openurl</string>
+			<string>alfred.workflow.utility.conditional</string>
 			<key>uid</key>
-			<string>59DD8AED-61F1-4902-B480-79CA423A1A6C</string>
+			<string>ADDC7EEC-657D-447A-8B5C-1F3E427DEB64</string>
 			<key>version</key>
 			<integer>1</integer>
 		</dict>
@@ -259,14 +315,31 @@ fi
 		<dict>
 			<key>config</key>
 			<dict>
+				<key>browser</key>
+				<string></string>
+				<key>spaces</key>
+				<string></string>
+				<key>url</key>
+				<string>{query}</string>
+				<key>utf8</key>
+				<true/>
+			</dict>
+			<key>type</key>
+			<string>alfred.workflow.action.openurl</string>
+			<key>uid</key>
+			<string>59DD8AED-61F1-4902-B480-79CA423A1A6C</string>
+			<key>version</key>
+			<integer>1</integer>
+		</dict>
+		<dict>
+			<key>config</key>
+			<dict>
 				<key>concurrently</key>
 				<false/>
 				<key>escaping</key>
 				<integer>102</integer>
 				<key>script</key>
-				<string>query=$1
-
-./go-ghpr auth ${query}</string>
+				<string>./go-ghpr --auth $1</string>
 				<key>scriptargtype</key>
 				<integer>1</integer>
 				<key>scriptfile</key>
@@ -365,10 +438,17 @@ end run</string>
 			<key>ypos</key>
 			<integer>60</integer>
 		</dict>
+		<key>1765ABE5-EF4E-4780-AA92-C174F2AEA8F6</key>
+		<dict>
+			<key>xpos</key>
+			<integer>975</integer>
+			<key>ypos</key>
+			<integer>70</integer>
+		</dict>
 		<key>21F5CB11-5A49-4E68-8983-B93FB5601B3F</key>
 		<dict>
 			<key>xpos</key>
-			<integer>285</integer>
+			<integer>270</integer>
 			<key>ypos</key>
 			<integer>60</integer>
 		</dict>
@@ -382,16 +462,16 @@ end run</string>
 		<key>3A3CAEA1-B6DE-4749-8751-85F1571E0807</key>
 		<dict>
 			<key>xpos</key>
-			<integer>745</integer>
+			<integer>620</integer>
 			<key>ypos</key>
 			<integer>160</integer>
 		</dict>
 		<key>59DD8AED-61F1-4902-B480-79CA423A1A6C</key>
 		<dict>
 			<key>xpos</key>
-			<integer>995</integer>
+			<integer>980</integer>
 			<key>ypos</key>
-			<integer>160</integer>
+			<integer>225</integer>
 		</dict>
 		<key>619768E5-4121-4395-B863-5599C9ACDECE</key>
 		<dict>
@@ -403,21 +483,28 @@ end run</string>
 		<key>61EF92D5-BC03-49C1-815D-790CA55C39C0</key>
 		<dict>
 			<key>xpos</key>
-			<integer>610</integer>
+			<integer>515</integer>
 			<key>ypos</key>
 			<integer>190</integer>
+		</dict>
+		<key>ADDC7EEC-657D-447A-8B5C-1F3E427DEB64</key>
+		<dict>
+			<key>xpos</key>
+			<integer>815</integer>
+			<key>ypos</key>
+			<integer>180</integer>
 		</dict>
 		<key>C4011055-B46E-4722-8271-F4346602D4E2</key>
 		<dict>
 			<key>xpos</key>
-			<integer>290</integer>
+			<integer>275</integer>
 			<key>ypos</key>
 			<integer>255</integer>
 		</dict>
 		<key>CE9787F6-8B10-43E5-A0D0-90C1CE28092F</key>
 		<dict>
 			<key>xpos</key>
-			<integer>295</integer>
+			<integer>280</integer>
 			<key>ypos</key>
 			<integer>455</integer>
 		</dict>
@@ -426,6 +513,8 @@ end run</string>
 	<dict>
 		<key>CACHE_AGE_SECONDS</key>
 		<string>600</string>
+		<key>CHECK_FOR_UPDATES</key>
+		<string>true</string>
 		<key>GIT_BASE_URL</key>
 		<string>github.com</string>
 		<key>QUERY_BY_ROLES</key>

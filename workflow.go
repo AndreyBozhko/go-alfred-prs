@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -14,15 +15,19 @@ import (
 	"time"
 
 	aw "github.com/deanishe/awgo"
+	"github.com/deanishe/awgo/update"
 	"github.com/google/go-github/v48/github"
 )
 
-// Commands that the workflow can run.
-const (
-	cmdAuth         = "auth"
-	cmdDisplay      = "display"
-	cmdUpdate       = "update"
-	cmdUpdateStatus = "update_status"
+// Workflow flags and arguments.
+var (
+	attemptsLeft      int
+	cmdAuth           bool
+	cmdCheck          bool
+	cmdDisplay        bool
+	cmdUpdatePRs      bool
+	cmdUpdatePRStatus bool
+	query             string
 )
 
 // Cache keys used by the workflow.
@@ -42,12 +47,14 @@ const (
 // Environment variables used by the workflow.
 var (
 	envVars = struct {
-		cacheMaxAge string
-		gitBaseUrl  string
-		roleFilters string
-		showReviews string
+		cacheMaxAge  string
+		checkUpdates string
+		gitBaseUrl   string
+		roleFilters  string
+		showReviews  string
 	}{
 		os.Getenv("CACHE_AGE_SECONDS"),
+		os.Getenv("CHECK_FOR_UPDATES"),
 		os.Getenv("GIT_BASE_URL"),
 		os.Getenv("QUERY_BY_ROLES"),
 		os.Getenv("SHOW_REVIEWS"),
@@ -72,7 +79,6 @@ var (
 	errMissingUrl  = errors.New("github url is not set")
 	errTaskRunning = errors.New("task is already running")
 	errTokenEmpty  = errors.New("token must not be empty")
-	errUnknownCmd  = errors.New("unknown command")
 )
 
 // GithubWorkflow is a wrapper around aw.Workflow.
@@ -80,6 +86,7 @@ type GithubWorkflow struct {
 	*aw.Workflow
 
 	cacheMaxAge  time.Duration
+	checkUpdate  bool
 	roleFilters  []string
 	fetchReviews bool
 	gitApiUrl    string
@@ -265,7 +272,7 @@ func (wf *GithubWorkflow) FetchPRs() error {
 
 	if wf.fetchReviews {
 		defer func() {
-			if err := wf.LaunchBackgroundTask(cmdUpdateStatus); err != nil {
+			if err := wf.LaunchBackgroundTask("--update_status"); err != nil {
 				log.Println("failed to launch update task:", err)
 			}
 		}()
@@ -347,9 +354,30 @@ func (wf *GithubWorkflow) LaunchUpdateTask(attemptsLeft int) {
 	wf.Rerun(rerunDelayDefault.Seconds())
 	wf.Var(fbAttemptsLeftKey, strconv.Itoa(attemptsLeft))
 
-	if err := wf.LaunchBackgroundTask(cmdUpdate); err != nil {
+	if err := wf.LaunchBackgroundTask("--update"); err != nil {
 		log.Println("failed to launch update task:", err)
 	}
+}
+
+// MaybeCheckForNewReleases pulls workflow release info from GitHub
+// and caches it locally, if the check is due.
+func (wf *GithubWorkflow) MaybeCheckForNewReleases(shouldDisplayPrompt bool) error {
+	if wf.UpdateCheckDue() {
+		if err := wf.LaunchBackgroundTask("--check"); err != nil {
+			return err
+		}
+	}
+
+	if shouldDisplayPrompt && wf.UpdateAvailable() {
+		wf.NewItem("Update available!").
+			Subtitle("press to install").
+			Autocomplete("workflow:update").
+			Arg("workflow:update").
+			Valid(true).
+			Icon(aw.IconWeb)
+	}
+
+	return nil
 }
 
 var workflow *GithubWorkflow
@@ -367,17 +395,17 @@ Available Commands:
 	update_status update review status of pull requests
 `
 
-// init displays the help message if no command line arguments were passed,
-// passed and terminates the program. Otherwise, the package initialization
-// continues in the second init func.
+// init defines command-line flags
 func init() {
-	if len(os.Args) < 2 {
-		println(strings.TrimSpace(help))
-		os.Exit(0)
-	}
+	flag.BoolVar(&cmdAuth, "auth", false, "set API token")
+	flag.BoolVar(&cmdCheck, "check", false, "check for workflow updates")
+	flag.BoolVar(&cmdDisplay, "display", false, "display pull requests")
+	flag.BoolVar(&cmdUpdatePRs, "update", false, "update pull requests cache")
+	flag.BoolVar(&cmdUpdatePRStatus, "update_status", false, "update PR status cache")
+	flag.IntVar(&attemptsLeft, "attempts", 0, "indicate # of remaining attempts")
 }
 
-// init creates the default workflow.
+// init creates and configures the workflow
 func init() {
 	if _, err := os.Stat(aw.IconWarning.Value); err != nil {
 		// substitute icon if it doesn't exist
@@ -385,8 +413,9 @@ func init() {
 	}
 
 	workflow = &GithubWorkflow{
-		Workflow:     aw.New(),
+		Workflow:     aw.New(update.GitHub("AndreyBozhko/go-alfred-prs")),
 		cacheMaxAge:  getCacheMaxAge(),
+		checkUpdate:  envVars.checkUpdates == "true",
 		roleFilters:  []string{},
 		fetchReviews: getShowReviews(),
 		gitApiUrl:    "",
@@ -396,14 +425,13 @@ func init() {
 // run executes the workflow logic. It delegates to concrete
 // workflow methods, based on parsed command line arguments.
 func run() error {
-	args := workflow.Args()
+	// handle magic commands
+	workflow.Args()
 
-	if len(args) == 1 {
-		args = append(args, "")
-	}
+	flag.Parse()
+	query = flag.Arg(0)
 
-	cmd, arg := args[0], args[1]
-
+	// load remaining workflow configurations
 	if err := workflow.configureBaseUrl(); err != nil {
 		return err
 	}
@@ -411,19 +439,34 @@ func run() error {
 		return err
 	}
 
-	switch cmd {
-	case cmdAuth:
-		return workflow.SetToken(arg)
-	case cmdDisplay:
-		attempt, _ := strconv.Atoi(arg)
-		return workflow.DisplayPRs(attempt)
-	case cmdUpdate:
-		return workflow.FetchPRs()
-	case cmdUpdateStatus:
-		return workflow.FetchPRStatus()
-	default:
-		return errUnknownCmd
+	// handle workflow updates
+	if cmdCheck {
+		return workflow.CheckForUpdate()
 	}
+	if workflow.checkUpdate {
+		shouldDisplayPrompt := query == ""
+		if err := workflow.MaybeCheckForNewReleases(shouldDisplayPrompt); err != nil {
+			return err
+		}
+	}
+
+	// workflow logic
+	if cmdAuth {
+		return workflow.SetToken(query)
+	}
+	if cmdDisplay {
+		return workflow.DisplayPRs(attemptsLeft)
+	}
+	if cmdUpdatePRs {
+		return workflow.FetchPRs()
+	}
+	if cmdUpdatePRStatus {
+		return workflow.FetchPRStatus()
+	}
+
+	// fallback
+	println(strings.TrimSpace(help))
+	return nil
 }
 
 func main() {
