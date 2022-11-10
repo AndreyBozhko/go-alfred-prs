@@ -373,19 +373,6 @@ func (wf *GithubWorkflow) MaybeCheckForNewReleases(shouldDisplayPrompt bool) err
 
 var workflow *GithubWorkflow
 
-const help = `
-Alfred workflow for GitHub pull requests
-
-Usage:
-	go-ghpr [command]
-
-Available Commands:
-	auth          set API token
-	display       display pull requests
-	update        update pull requests
-	update_status update review status of pull requests
-`
-
 // init defines command-line flags
 func init() {
 	flag.BoolVar(&cmdAuth, "auth", false, "set API token")
@@ -394,6 +381,7 @@ func init() {
 	flag.BoolVar(&cmdUpdatePRs, "update", false, "update pull requests cache")
 	flag.BoolVar(&cmdUpdatePRStatus, "update_status", false, "update PR status cache")
 	flag.IntVar(&attemptsLeft, "attempts", 0, "indicate # of remaining attempts")
+	flag.StringVar(&query, "query", "", "command input")
 }
 
 // init creates and configures the workflow
@@ -416,11 +404,9 @@ func init() {
 // run executes the workflow logic. It delegates to concrete
 // workflow methods, based on parsed command line arguments.
 func run() error {
-	// handle magic commands
+	// parse args and handle magic commands
 	workflow.Args()
-
 	flag.Parse()
-	query = flag.Arg(0)
 
 	// load remaining workflow configurations
 	if err := workflow.configureBaseUrl(); err != nil {
@@ -456,7 +442,9 @@ func run() error {
 	}
 
 	// fallback
-	println(strings.TrimSpace(help))
+	println("Alfred workflow for GitHub pull requests\n")
+	flag.Usage()
+
 	return nil
 }
 
