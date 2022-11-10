@@ -2,10 +2,8 @@ name: Release new version
 
 on:
   push:
-    branches:
-      - "main"
-    paths:
-      - "version"
+    branches: [ main ]
+    paths: [ version ]
 
 jobs:
   release:
@@ -20,10 +18,6 @@ jobs:
         with:
           go-version-file: "go.mod"
 
-      - name: Fetch dependencies
-        run: |
-          go get -v ./...
-      
       - name: Compile
         run: |
           GOOS=darwin GOARCH=amd64 go build -ldflags "-s -w" -o go-ghpr *.go

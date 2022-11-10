@@ -10,12 +10,12 @@ The original GitHub PR workflow was developed in Python 2 which reached its end-
 
 And to add to that, Apple no longer bundles Python 2 in macOS since macOS 12.3 Monterey.
 
-### Features
+## Workflow Features
 * shows you all relevant pull requests (the ones you want to see anyway)
 * optionally displays ✅ or ❌ for each pull request that was reviewed
 * securely stores your GitHub API token in the system keychain
 * works with GitHub and GitHub Enterprise
-* no extra runtime dependencies - just what you'd expect from a Go application
+* fast, lightweight, no extra runtime dependencies - just what you'd expect from a Go application
 
 ## Commands
 * **`ghpr`** - display your pull requests
@@ -24,15 +24,12 @@ And to add to that, Apple no longer bundles Python 2 in macOS since macOS 12.3 M
 * **`ghpr-auth`** - set your GitHub API token
 
 ## Workflow Environment Variables
-- **`CACHE_AGE_SECONDS`** - TTL for internal cache of pull requests
-  - default = `600`
-- **`GIT_BASE_URL`** - url of the GitHub instance
-  - default = `github.com`
-- **`QUERY_BY_ROLES`** - filter for the displayed pull requests
-  - default = `-assignee,-author,+involves,-mentions,-review-requested`
-  - the selections can be toggled by using `+` or `-` prefixes in front of each role
-- **`SHOW_REVIEWS`** - flag to enable displaying PR reviews
-  - default = `false`
+Variable                | Default      | Description
+----------------------- | ------------ | ---------------------------------------
+**`CACHE_AGE_SECONDS`** | `600`        | TTL for internal cache of pull requests
+**`GIT_BASE_URL`**      | `github.com` | url of the GitHub instance
+**`QUERY_BY_ROLES`**    | `-assignee,-author,+involves,-mentions,-review-requested` | filter for the displayed pull requests<br />(the selections can be toggled by using<br />`+` or `-` prefixes in front of each role)
+**`SHOW_REVIEWS`**      | `false`      | flag to enable displaying PR reviews
 
 ## Release process
 A new release is automatically published by GitHub Actions when the change to the workflow [version](version) is detected.
@@ -56,11 +53,11 @@ To install Rosetta for the first time on a Mac with Apple silicon, run the comma
 * https://github.com/gharlan/alfred-github-workflow
   * 🔥 a workflow with all batteries included
   * 🤷‍♂️ stores API token in a SQLite db
-  * requires PHP runtime
+  * 🔗 requires PHP runtime
 * https://github.com/edgarjs/alfred-github-repos
   * 🔎 a workflow for searching github repos and PRs
   * 🚨 stores API token in workflow environment
-  * requires Ruby runtime
+  * 🔗 requires Ruby runtime
 
 
 [1]: https://github.com/renuo/alfred-pr-workflow

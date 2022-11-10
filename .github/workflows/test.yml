@@ -19,13 +19,9 @@ jobs:
         with:
           go-version-file: "go.mod"
 
-      - name: Fetch dependencies
-        run: |
-          go get -v -t ./...
-
       - name: Run tests
         env:
-          alfred_workflow_bundleid: me.abozhko.ghpr
+          alfred_workflow_bundleid: me.abozhko.go-ghpr
           alfred_workflow_data: ./.tmp/data
           alfred_workflow_cache: ./.tmp/cache
         run: |
