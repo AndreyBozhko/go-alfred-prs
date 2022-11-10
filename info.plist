@@ -164,7 +164,7 @@
 				<key>escaping</key>
 				<integer>102</integer>
 				<key>script</key>
-				<string>./go-ghpr --update --query $1</string>
+				<string>./go-ghpr --update --query=$1</string>
 				<key>scriptargtype</key>
 				<integer>1</integer>
 				<key>scriptfile</key>
@@ -238,7 +238,7 @@ EOB
 
 else
 
-./go-ghpr --display --attempts=${GH_ATTEMPTS_LEFT:-3} --query $1
+./go-ghpr --display --attempts=${GH_ATTEMPTS_LEFT:-3} --query=$1
 
 fi
 </string>
@@ -339,7 +339,7 @@ fi
 				<key>escaping</key>
 				<integer>102</integer>
 				<key>script</key>
-				<string>./go-ghpr --auth --query $1</string>
+				<string>./go-ghpr --auth --query=$1</string>
 				<key>scriptargtype</key>
 				<integer>1</integer>
 				<key>scriptfile</key>
