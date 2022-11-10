@@ -22,7 +22,9 @@ jobs:
       - name: Run tests
         env:
           alfred_workflow_bundleid: me.abozhko.go-ghpr
-          alfred_workflow_data: ./.tmp/data
           alfred_workflow_cache: ./.tmp/cache
+          alfred_workflow_data: ./.tmp/data
+          alfred_workflow_name: go-ghpr
+          alfred_workflow_version: "0.0.1"
         run: |
           go test -v ./...
