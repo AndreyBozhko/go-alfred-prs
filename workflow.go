@@ -33,7 +33,6 @@ var (
 // Cache keys used by the workflow.
 const (
 	wfAuthTokenKey    = "gh-auth-token"
-	wfBaseUrlKey      = "gh-base-url"
 	wfUserInfoKey     = "gh-user-info"
 	wfPullRequestsKey = "gh-pull-requests"
 )
@@ -140,19 +139,12 @@ func (wf *GithubWorkflow) configureBaseUrl() error {
 
 	wf.gitApiUrl = u
 
-	// remove previously cached username and PRs
+	// remove previously cached user info and PRs
 	// if current git url does not match cached url
-	prevUrl, err := wf.Cache.Load(wfBaseUrlKey)
-	if err == nil && string(prevUrl) == u {
-		return nil
-	}
-
-	if err = wf.ClearCache(); err != nil {
-		return err
-	}
-
-	if err = wf.Cache.Store(wfBaseUrlKey, []byte(u)); err != nil {
-		return err
+	var user github.User
+	err := wf.Cache.LoadJSON(wfUserInfoKey, &user)
+	if err == nil && !strings.HasPrefix(*user.HTMLURL, wf.GetBaseWebUrl()) {
+		return wf.ClearCache()
 	}
 
 	return nil
