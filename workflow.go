@@ -363,7 +363,6 @@ func (wf *GithubWorkflow) MaybeCheckForNewReleases(shouldDisplayPrompt bool) err
 	if shouldDisplayPrompt && wf.UpdateAvailable() {
 		wf.NewItem("Update available!").
 			Subtitle("press to install").
-			Autocomplete("workflow:update").
 			Arg("workflow:update").
 			Valid(true).
 			Icon(aw.IconWeb)
