@@ -44,7 +44,7 @@ func parseRoleFilters(roles string) []string {
 
 // deduplicateAndSort returns unique GitHub issues from the slice, sorted by the update timestamp.
 func deduplicateAndSort(prs []*github.Issue) []*github.Issue {
-	var result []*github.Issue
+	result := make([]*github.Issue, 0)
 
 	seen := make(map[int64]bool)
 	for _, item := range prs {
