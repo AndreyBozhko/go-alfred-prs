@@ -1,0 +1,42 @@
+[
+  {
+    "id": 2,
+    "number": 2,
+    "title": "Bump golang.org/x/oauth2 from 0.1.0 to 0.2.0",
+    "user": {
+      "login": "dependabot[bot]"
+    },
+    "updated_at": "2022-11-10T05:23:57Z",
+    "html_url": "https://github.com/AndreyBozhko/go-alfred-prs/pull/2"
+  },
+  {
+    "id": 3,
+    "number": 1,
+    "title": "Bump github.com/stretchr/testify from 1.7.0 to 1.8.1",
+    "user": {
+      "login": "dependabot[bot]"
+    },
+    "updated_at": "2022-11-08T15:05:39Z",
+    "html_url": "https://github.com/AndreyBozhko/go-alfred-prs/pull/1"
+  },
+  {
+    "id": 4,
+    "number": 70,
+    "title": "Require python 3.7 in setup.py",
+    "user": {
+      "login": "AndreyBozhko"
+    },
+    "updated_at": "2022-07-13T14:42:56Z",
+    "html_url": "https://github.com/inyutin/aiohttp_retry/pull/70"
+  },
+  {
+    "id": 1,
+    "number": 28,
+    "title": "Fix regression in dice::min_size",
+    "html_url": "https://github.com/chokkan/simstring/pull/28",
+    "updated_at": "2021-05-31T06:28:15Z",
+    "user": {
+      "login": "AndreyBozhko"
+    }
+  }
+]
