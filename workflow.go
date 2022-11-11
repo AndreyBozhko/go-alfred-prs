@@ -46,14 +46,14 @@ const (
 // Environment variables used by the workflow.
 var (
 	envVars = struct {
+		allowUpdates string
 		cacheMaxAge  string
-		checkUpdates string
 		gitBaseUrl   string
 		roleFilters  string
 		showReviews  string
 	}{
-		os.Getenv("CACHE_AGE_SECONDS"),
 		os.Getenv("CHECK_FOR_UPDATES"),
+		os.Getenv("CACHE_AGE_SECONDS"),
 		os.Getenv("GIT_BASE_URL"),
 		os.Getenv("QUERY_BY_ROLES"),
 		os.Getenv("SHOW_REVIEWS"),
@@ -84,8 +84,8 @@ var (
 type GithubWorkflow struct {
 	*aw.Workflow
 
+	allowUpdates bool
 	cacheMaxAge  time.Duration
-	checkUpdate  bool
 	roleFilters  []string
 	fetchReviews bool
 	gitApiUrl    string
@@ -351,9 +351,9 @@ func (wf *GithubWorkflow) LaunchUpdateTask(attemptsLeft int) {
 	}
 }
 
-// MaybeCheckForNewReleases pulls workflow release info from GitHub
+// ShowNewVersions pulls workflow release info from GitHub
 // and caches it locally, if the check is due.
-func (wf *GithubWorkflow) MaybeCheckForNewReleases(shouldDisplayPrompt bool) error {
+func (wf *GithubWorkflow) ShowNewVersions(shouldDisplayPrompt bool) error {
 	if wf.UpdateCheckDue() {
 		if err := wf.LaunchBackgroundTask("--check"); err != nil {
 			return err
@@ -394,8 +394,8 @@ func init() {
 	workflow = &GithubWorkflow{
 		Workflow:     aw.New(update.GitHub("AndreyBozhko/go-alfred-prs")),
 		cacheMaxAge:  getCacheMaxAge(),
-		checkUpdate:  envVars.checkUpdates == "true",
-		roleFilters:  []string{},
+		allowUpdates: envVars.allowUpdates == "true",
+		roleFilters:  make([]string, 0),
 		fetchReviews: getShowReviews(),
 		gitApiUrl:    "",
 	}
@@ -416,22 +416,21 @@ func run() error {
 		return err
 	}
 
-	// handle workflow updates
-	if cmdCheck {
-		return workflow.CheckForUpdate()
-	}
-	if workflow.checkUpdate {
-		shouldDisplayPrompt := query == ""
-		if err := workflow.MaybeCheckForNewReleases(shouldDisplayPrompt); err != nil {
-			return err
-		}
-	}
-
 	// workflow logic
 	if cmdAuth {
 		return workflow.SetToken(query)
 	}
+	if cmdCheck {
+		return workflow.CheckForUpdate()
+	}
 	if cmdDisplay {
+		// handle updates
+		if workflow.allowUpdates {
+			shouldDisplayPrompt := query == ""
+			if err := workflow.ShowNewVersions(shouldDisplayPrompt); err != nil {
+				return err
+			}
+		}
 		return workflow.DisplayPRs(attemptsLeft)
 	}
 	if cmdUpdatePRs {
