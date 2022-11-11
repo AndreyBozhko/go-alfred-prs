@@ -4,6 +4,8 @@ A Golang port of [GitHub PR workflow][1] for [Alfred][2].
 
 **[DOWNLOAD][3]**
 
+<img src="https://raw.githubusercontent.com/AndreyBozhko/go-alfred-prs/main/screenshot.png" width="575">
+
 This workflow is powered by **[AwGo][4]** and **[go-github][5]**.
 
 The original GitHub PR workflow was developed in Python 2 which reached its end-of-life on Jan 1st, 2020.

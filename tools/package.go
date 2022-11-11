@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	xmlTags = regexp.MustCompile(`<(br )?\/?\w*?>`)
+	xmlTags = regexp.MustCompile(`<.*?>`)
 )
 
 func readFile(name string) (text string, err error) {
