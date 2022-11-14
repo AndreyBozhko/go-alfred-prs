@@ -69,8 +69,8 @@ const (
 // Common regex patterns used by the workflow.
 var (
 	gitUrlPattern      = regexp.MustCompile(`^(https://)?(api.)?[a-z.]+\.com$`)
-	roleFiltersPattern = regexp.MustCompile(`^([+-](assignee|author|involves|mentions|review-requested),?)*$`)
-	singleRolePattern  = regexp.MustCompile(`(([+-])(assignee|author|involves|mentions|review-requested))`)
+	roleFiltersPattern = regexp.MustCompile(`^([+-](assignee|author|commenter|involves|mentions|review-requested),?)*$`)
+	singleRolePattern  = regexp.MustCompile(`(([+-])(assignee|author|commenter|involves|mentions|review-requested))`)
 )
 
 // Common workflow errors.
