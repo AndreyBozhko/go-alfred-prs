@@ -34,7 +34,7 @@ Variable                | Default      | Description
 **`QUERY_BY_ROLES`**    | `-assignee,-author,+involves,-mentions,-review-requested` | filter for the displayed pull requests<br />(the selections can be toggled by using<br />`+` or `-` prefixes in front of each role)
 **`SHOW_REVIEWS`**      | `false`      | flag to enable displaying PR reviews
 
-## Release process
+## Releasing a new version
 A new release is automatically published by GitHub Actions when the change to the workflow [version](version) is detected.
 
 At the moment, the workflow binary is built for `amd64` architecture only.

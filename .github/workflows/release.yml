@@ -27,6 +27,7 @@ jobs:
           alfred_version: 4
           alfred_preferences: ./tools/prefs.json
         run: |
+          touch tools/prefs.json
           mkdir build && mkdir dist
           cp LICENSE README.md go-ghpr icon.png info.plist version build/
           go run tools/package.go build dist
