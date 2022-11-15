@@ -25,40 +25,72 @@ func TestParseRepoFromUrl(t *testing.T) {
 
 func TestParseRoleFilters(t *testing.T) {
 	data := []struct {
-		input    string
+		input    []string
 		expected []string
 	}{
 		{
-			"+author",
+			[]string{"+author"},
 			[]string{"author"},
 		},
 		{
-			"-author",
+			[]string{"-author"},
 			[]string{},
 		},
 		{
-			"+assignee,+author,+involves,+mentions,+review-requested",
+			[]string{"+assignee", "+author", "+involves", "+mentions", "+review-requested"},
 			[]string{"assignee", "author", "involves", "mentions", "review-requested"},
 		},
 		{
-			"+author,+assignee,-involves,+mentions,-review-requested",
+			[]string{"+author", "+assignee", "-involves", "+mentions", "-review-requested"},
 			[]string{"assignee", "author", "mentions"},
 		},
 		{
-			"+author,+author,-author,+mentions",
+			[]string{"+author", "+author", "-author", "+mentions"},
 			[]string{"mentions"},
 		},
 		{
-			"-author,-assignee,+involves,+assignee",
+			[]string{"-author", "-assignee", "+involves", "+assignee"},
 			[]string{"assignee", "involves"},
 		},
 	}
 
 	for _, testcase := range data {
-		actual := parseRoleFilters(testcase.input)
+		actual, err := parseRoleFilters(testcase.input)
+		assert.Nil(t, err)
+
 		sort.Strings(actual)
 
 		assert.Equal(t, testcase.expected, actual)
+	}
+}
+
+func TestParseRoleFiltersError(t *testing.T) {
+	data := []struct {
+		input []string
+	}{
+		{
+			[]string{"+not-author"},
+		},
+		{
+			[]string{"*author"},
+		},
+		{
+			[]string{"+assignee", "+author", "+involves", "+mentions", "+review-request"},
+		},
+		{
+			[]string{"+author", "+assignee", "/involves", "+mentions", "-review-requested"},
+		},
+		{
+			[]string{"+author+author", "-author", "+mentions"},
+		},
+		{
+			[]string{"-author", "-assignee,+involves", "+assignee"},
+		},
+	}
+
+	for _, testcase := range data {
+		_, err := parseRoleFilters(testcase.input)
+		assert.Error(t, err)
 	}
 }
 

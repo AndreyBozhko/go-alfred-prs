@@ -4,6 +4,7 @@ import (
 	"context"
 	"regexp"
 	"sort"
+	"strings"
 
 	"github.com/google/go-github/v48/github"
 	"golang.org/x/oauth2"
@@ -11,6 +12,9 @@ import (
 
 var (
 	ghHtmlUrlPattern = regexp.MustCompile(`^https://[a-z.]+.com/([a-zA-Z0-9/_\-]+)/pull/\d+$`)
+
+	availableRoles    = []string{"assignee", "author", "commenter", "involves", "mentions", "review-requested"}
+	singleRolePattern = regexp.MustCompile(`^(([+-])(` + strings.Join(availableRoles, "|") + `))$`)
 )
 
 // parseRepoFromUrl extracts 'org/repo' substring from the HTML URL of a GitHub issue.
@@ -22,14 +26,22 @@ func parseRepoFromUrl(htmlUrl string) string {
 	return ""
 }
 
-// parseRoleFilters analyzes configuration string
+// parseRoleFilters analyzes configuration strings
 // and extracts roles that are enabled.
-func parseRoleFilters(roles string) []string {
+func parseRoleFilters(roles []string) ([]string, error) {
 	result := make([]string, 0)
 
 	seen := make(map[string]string)
-	for _, match := range singleRolePattern.FindAllStringSubmatch(roles, -1) {
-		flag, role := match[2], match[3]
+	for _, roleString := range roles {
+		matches := singleRolePattern.FindAllStringSubmatch(roleString, -1)
+		if len(matches) != 1 {
+			return nil, &alfredError{
+				"invalid role: " + roleString,
+				"expected one of: " + strings.Join(availableRoles, ","),
+			}
+		}
+
+		flag, role := matches[0][2], matches[0][3]
 		seen[role] = flag
 	}
 
@@ -39,7 +51,7 @@ func parseRoleFilters(roles string) []string {
 		}
 	}
 
-	return result
+	return result, nil
 }
 
 // deduplicateAndSort returns unique GitHub issues from the slice, sorted by the update timestamp.

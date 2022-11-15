@@ -17,6 +17,7 @@ import (
 	aw "github.com/deanishe/awgo"
 	"github.com/deanishe/awgo/update"
 	"github.com/google/go-github/v48/github"
+	"go.deanishe.net/env"
 )
 
 // Workflow flags and arguments.
@@ -43,34 +44,23 @@ const (
 	fbErrorOccurredKey = "GH_ERROR_OCCURRED"
 )
 
-// Environment variables used by the workflow.
-var (
-	envVars = struct {
-		allowUpdates string
-		cacheMaxAge  string
-		gitBaseUrl   string
-		roleFilters  string
-		showReviews  string
-	}{
-		os.Getenv("CHECK_FOR_UPDATES"),
-		os.Getenv("CACHE_AGE_SECONDS"),
-		os.Getenv("GIT_BASE_URL"),
-		os.Getenv("QUERY_BY_ROLES"),
-		os.Getenv("SHOW_REVIEWS"),
-	}
-)
+// workflowConfig holds environment variables used by the workflow.
+type workflowConfig struct {
+	AllowUpdates bool          `env:"CHECK_FOR_UPDATES"`
+	CacheMaxAge  time.Duration `env:"CACHE_MAX_AGE"`
+	FetchReviews bool          `env:"SHOW_REVIEWS"`
+	GitApiUrl    string        `env:"GIT_BASE_URL"`
+	RoleFilters  []string      `env:"QUERY_BY_ROLES"`
+}
 
 // Common time and duration parameters used by the workflow.
 const (
-	cacheMaxAgeDefault = 600 * time.Second
-	rerunDelayDefault  = 3 * time.Second
+	rerunDelayDefault = 3 * time.Second
 )
 
 // Common regex patterns used by the workflow.
 var (
-	gitUrlPattern      = regexp.MustCompile(`^(https://)?(api.)?[a-z.]+\.com$`)
-	roleFiltersPattern = regexp.MustCompile(`^([+-](assignee|author|commenter|involves|mentions|review-requested),?)*$`)
-	singleRolePattern  = regexp.MustCompile(`(([+-])(assignee|author|commenter|involves|mentions|review-requested))`)
+	gitUrlPattern = regexp.MustCompile(`^(https://)?(api.)?[a-z.]+\.com$`)
 )
 
 // Common workflow errors.
@@ -84,44 +74,24 @@ var (
 type GithubWorkflow struct {
 	*aw.Workflow
 
-	allowUpdates bool
-	cacheMaxAge  time.Duration
-	roleFilters  []string
-	fetchReviews bool
-	gitApiUrl    string
+	*workflowConfig
 }
 
-// getCacheMaxAge returns the max age configuration for the workflow cache.
-func getCacheMaxAge() time.Duration {
-	if age, err := strconv.Atoi(envVars.cacheMaxAge); err == nil {
-		return time.Duration(age) * time.Second
+// validateRoleFilters parses user roles which will be used to search for open pull requests.
+func (wf *GithubWorkflow) validateRoleFilters() error {
+	filters, err := parseRoleFilters(wf.RoleFilters)
+	if err != nil {
+		return err
 	}
 
-	return cacheMaxAgeDefault
-}
-
-// configureRoleFilters returns user roles which will be used to search for open pull requests.
-func (wf *GithubWorkflow) configureRoleFilters() error {
-	input := envVars.roleFilters
-
-	if ok := roleFiltersPattern.MatchString(input); !ok {
-		return &alfredError{"invalid config: " + input, "expected something like +author,+review-requested"}
-	}
-
-	wf.roleFilters = parseRoleFilters(input)
-
+	wf.RoleFilters = filters
 	return nil
 }
 
-// getShowReviews returns flag that enables or disables showing PR reviews.
-func getShowReviews() bool {
-	return strings.ToLower(envVars.showReviews) == "true"
-}
-
-// configureBaseUrl parses git url from an environment variable,
+// validateBaseUrl parses git url from an environment variable,
 // updates the workflow, and invalidates workflow cache if needed.
-func (wf *GithubWorkflow) configureBaseUrl() error {
-	u := envVars.gitBaseUrl
+func (wf *GithubWorkflow) validateBaseUrl() error {
+	u := wf.GitApiUrl
 	if u == "" {
 		return errMissingUrl
 	}
@@ -134,10 +104,10 @@ func (wf *GithubWorkflow) configureBaseUrl() error {
 	}
 
 	if !gitUrlPattern.MatchString(u) {
-		return &alfredError{"invalid github url: " + envVars.gitBaseUrl, "expected something like github.com"}
+		return &alfredError{"invalid github url: " + wf.GitApiUrl, "expected something like github.com"}
 	}
 
-	wf.gitApiUrl = u
+	wf.GitApiUrl = u
 
 	// remove previously cached user info and PRs
 	// if current git url does not match cached url
@@ -152,7 +122,7 @@ func (wf *GithubWorkflow) configureBaseUrl() error {
 
 // GetBaseWebUrl retrieves web URL of the GitHub instance from workflow data.
 func (wf *GithubWorkflow) GetBaseWebUrl() string {
-	return strings.ReplaceAll(wf.gitApiUrl, "https://api.", "https://")
+	return strings.ReplaceAll(wf.GitApiUrl, "https://api.", "https://")
 }
 
 // GetToken retrieves the API token from user's keychain.
@@ -210,7 +180,7 @@ func (wf *GithubWorkflow) DisplayPRs(attemptsLeft int) error {
 			Valid(true)
 	}
 
-	if wf.Cache.Expired(wfPullRequestsKey, wf.cacheMaxAge) {
+	if wf.Cache.Expired(wfPullRequestsKey, wf.CacheMaxAge) {
 		return &retryable{
 			"Could not load pull requests :(",
 			"try running ghpr-update manually",
@@ -234,7 +204,7 @@ func (wf *GithubWorkflow) FetchPRs() error {
 		return err
 	}
 
-	client, err := newGithubClient(ctx, wf.gitApiUrl, token)
+	client, err := newGithubClient(ctx, wf.GitApiUrl, token)
 	if err != nil {
 		return err
 	}
@@ -253,7 +223,7 @@ func (wf *GithubWorkflow) FetchPRs() error {
 	}
 
 	var prs []*github.Issue
-	for _, role := range wf.roleFilters {
+	for _, role := range wf.RoleFilters {
 		query := fmt.Sprintf("type:pr is:open %s:%s", role, *user.Login)
 		issues, _, err := client.Search.Issues(ctx, query, nil)
 		if err != nil {
@@ -262,7 +232,7 @@ func (wf *GithubWorkflow) FetchPRs() error {
 		prs = append(prs, issues.Issues...)
 	}
 
-	if wf.fetchReviews {
+	if wf.FetchReviews {
 		defer func() {
 			if err := wf.LaunchBackgroundTask("--update_status"); err != nil {
 				log.Println("failed to launch update task:", err)
@@ -287,7 +257,7 @@ func (wf *GithubWorkflow) FetchPRStatus() error {
 		return err
 	}
 
-	client, err := newGithubClient(ctx, wf.gitApiUrl, token)
+	client, err := newGithubClient(ctx, wf.GitApiUrl, token)
 	if err != nil {
 		return err
 	}
@@ -392,12 +362,8 @@ func init() {
 	}
 
 	workflow = &GithubWorkflow{
-		Workflow:     aw.New(update.GitHub("AndreyBozhko/go-alfred-prs")),
-		cacheMaxAge:  getCacheMaxAge(),
-		allowUpdates: envVars.allowUpdates == "true",
-		roleFilters:  make([]string, 0),
-		fetchReviews: getShowReviews(),
-		gitApiUrl:    "",
+		Workflow:       aw.New(update.GitHub("AndreyBozhko/go-alfred-prs")),
+		workflowConfig: &workflowConfig{},
 	}
 }
 
@@ -408,11 +374,15 @@ func run() error {
 	workflow.Args()
 	flag.Parse()
 
-	// load remaining workflow configurations
-	if err := workflow.configureBaseUrl(); err != nil {
+	if err := env.Bind(workflow.workflowConfig); err != nil {
 		return err
 	}
-	if err := workflow.configureRoleFilters(); err != nil {
+
+	// load remaining workflow configurations
+	if err := workflow.validateBaseUrl(); err != nil {
+		return err
+	}
+	if err := workflow.validateRoleFilters(); err != nil {
 		return err
 	}
 
@@ -425,7 +395,7 @@ func run() error {
 	}
 	if cmdDisplay {
 		// handle updates
-		if workflow.allowUpdates {
+		if workflow.AllowUpdates {
 			shouldDisplayPrompt := query == ""
 			if err := workflow.ShowNewVersions(shouldDisplayPrompt); err != nil {
 				return err

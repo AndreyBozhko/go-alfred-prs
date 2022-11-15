@@ -6,6 +6,7 @@ require (
 	github.com/deanishe/awgo v0.29.1
 	github.com/google/go-github/v48 v48.0.0
 	github.com/stretchr/testify v1.8.1
+	go.deanishe.net/env v0.5.1
 	golang.org/x/oauth2 v0.2.0
 )
 
@@ -16,7 +17,6 @@ require (
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/magefile/mage v1.14.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	go.deanishe.net/env v0.5.1 // indirect
 	go.deanishe.net/fuzzy v1.0.0 // indirect
 	golang.org/x/crypto v0.1.0 // indirect
 	golang.org/x/net v0.2.0 // indirect

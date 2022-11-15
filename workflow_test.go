@@ -23,12 +23,14 @@ func init() {
 	log.SetOutput(io.Discard)
 
 	testWf = &GithubWorkflow{
-		Workflow:     aw.New(),
-		cacheMaxAge:  5 * time.Second,
-		allowUpdates: false,
-		roleFilters:  []string{"author", "involves"},
-		fetchReviews: false,
-		gitApiUrl:    "",
+		Workflow: aw.New(),
+		workflowConfig: &workflowConfig{
+			AllowUpdates: false,
+			CacheMaxAge:  5 * time.Second,
+			FetchReviews: false,
+			GitApiUrl:    "",
+			RoleFilters:  []string{"author", "involves"},
+		},
 	}
 }
 
@@ -37,7 +39,7 @@ func TestFetchAndDisplay(t *testing.T) {
 	url, teardown := setupFakeGitHub()
 	defer teardown()
 
-	testWf.gitApiUrl = url
+	testWf.GitApiUrl = url
 
 	kc.ErrNotFound = nil // effectively disable using keychain
 	defer func() {
