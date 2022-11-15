@@ -518,7 +518,7 @@ end run</string>
 		<key>GIT_BASE_URL</key>
 		<string>github.com</string>
 		<key>QUERY_BY_ROLES</key>
-		<string>-assignee,-author,-commenter,+involves,-mentions,-review-requested</string>
+		<string>-assignee,-author,-commenter,+involves,-mentions,-review-requested,-reviewed-by</string>
 		<key>SHOW_REVIEWS</key>
 		<string>false</string>
 	</dict>

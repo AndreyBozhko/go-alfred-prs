@@ -31,7 +31,7 @@ Variable                | Default      | Description
 **`CACHE_MAX_AGE    `** | `10m`        | TTL for internal cache of pull requests
 **`CHECK_FOR_UPDATES`** | `true`       | flag to enable checking for workflow updates
 **`GIT_BASE_URL`**      | `github.com` | url of the GitHub instance
-**`QUERY_BY_ROLES`**    | `-assignee,-author,-commenter,+involves,-mentions,-review-requested` | filter for the displayed pull requests<br />(the selections can be toggled by using<br />`+` or `-` prefixes in front of each role)
+**`QUERY_BY_ROLES`**    | `-assignee,-author,-commenter,+involves,-mentions,-review-requested,-reviewed-by` | filter for the displayed pull requests<br />(the selections can be toggled by using<br />`+` or `-` prefixes in front of each role)
 **`SHOW_REVIEWS`**      | `false`      | flag to enable displaying PR reviews
 
 ## Releasing a new version

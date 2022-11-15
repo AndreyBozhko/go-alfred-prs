@@ -13,7 +13,7 @@ import (
 var (
 	ghHtmlUrlPattern = regexp.MustCompile(`^https://[a-z.]+.com/([a-zA-Z0-9/_\-]+)/pull/\d+$`)
 
-	availableRoles    = []string{"assignee", "author", "commenter", "involves", "mentions", "review-requested"}
+	availableRoles    = []string{"assignee", "author", "commenter", "involves", "mentions", "review-requested", "reviewed-by"}
 	singleRolePattern = regexp.MustCompile(`^(([+-])(` + strings.Join(availableRoles, "|") + `))$`)
 )
 
