@@ -375,7 +375,7 @@ func run() error {
 	flag.Parse()
 
 	if err := env.Bind(workflow.workflowConfig); err != nil {
-		return err
+		return &alfredError{"cannot parse environment variables", err.Error()}
 	}
 
 	// load remaining workflow configurations
