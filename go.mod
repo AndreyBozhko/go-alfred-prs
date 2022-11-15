@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/deanishe/awgo v0.29.1
-	github.com/google/go-github/v48 v48.0.0
+	github.com/google/go-github/v48 v48.1.0
 	github.com/stretchr/testify v1.8.1
 	go.deanishe.net/env v0.5.1
 	golang.org/x/oauth2 v0.2.0
