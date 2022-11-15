@@ -11,13 +11,13 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	aw "github.com/deanishe/awgo"
 	"github.com/deanishe/awgo/update"
 	"github.com/google/go-github/v48/github"
 	"go.deanishe.net/env"
+	"golang.org/x/sync/errgroup"
 )
 
 // Workflow flags and arguments.
@@ -222,13 +222,27 @@ func (wf *GithubWorkflow) FetchPRs() error {
 		return err
 	}
 
+	wg, ctx := errgroup.WithContext(ctx)
+	results := make([]*github.IssuesSearchResult, len(wf.RoleFilters))
+	for i, role := range wf.RoleFilters {
+		i, role := i, role
+		wg.Go(func() error {
+			query := fmt.Sprintf("type:pr is:open %s:%s", role, *user.Login)
+			issues, _, err := client.Search.Issues(ctx, query, nil)
+			if err != nil {
+				return err
+			}
+			results[i] = issues
+			return nil
+		})
+	}
+
+	if err = wg.Wait(); err != nil {
+		return err
+	}
+
 	var prs []*github.Issue
-	for _, role := range wf.RoleFilters {
-		query := fmt.Sprintf("type:pr is:open %s:%s", role, *user.Login)
-		issues, _, err := client.Search.Issues(ctx, query, nil)
-		if err != nil {
-			return err
-		}
+	for _, issues := range results {
 		prs = append(prs, issues.Issues...)
 	}
 
@@ -262,37 +276,30 @@ func (wf *GithubWorkflow) FetchPRStatus() error {
 		return err
 	}
 
-	var wg sync.WaitGroup
-	defer wg.Wait()
+	wg, ctx := errgroup.WithContext(ctx)
 
 	// TODO FIXME invalidate cache
-	wg.Add(len(prs))
 	for _, pr := range prs {
-		go func(p github.Issue) {
-			defer wg.Done()
-
-			project := parseRepoFromUrl(*p.HTMLURL)
+		pr := pr
+		wg.Go(func() error {
+			project := parseRepoFromUrl(*pr.HTMLURL)
 			owner, repo, _ := strings.Cut(project, "/")
 
-			uniqueKey := strconv.FormatInt(*p.ID, 10)
+			uniqueKey := strconv.FormatInt(*pr.ID, 10)
 
 			var ignored []github.PullRequestReview
-			err := wf.Cache.LoadOrStoreJSON(
+			return wf.Cache.LoadOrStoreJSON(
 				uniqueKey,
-				time.Since(*p.UpdatedAt),
+				time.Since(*pr.UpdatedAt),
 				func() (interface{}, error) {
-					reviews, _, err := client.PullRequests.ListReviews(ctx, owner, repo, *p.Number, nil)
+					reviews, _, err := client.PullRequests.ListReviews(ctx, owner, repo, *pr.Number, nil)
 					return reviews, err
 				},
 				&ignored)
-
-			if err != nil {
-				panic(err)
-			}
-		}(pr)
+		})
 	}
 
-	return nil
+	return wg.Wait()
 }
 
 // LaunchBackgroundTask starts a workflow task in the background (if it is not running already).

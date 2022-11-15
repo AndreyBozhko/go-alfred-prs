@@ -8,6 +8,7 @@ require (
 	github.com/stretchr/testify v1.8.1
 	go.deanishe.net/env v0.5.1
 	golang.org/x/oauth2 v0.2.0
+	golang.org/x/sync v0.1.0
 )
 
 require (
