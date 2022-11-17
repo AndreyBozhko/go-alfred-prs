@@ -42,11 +42,11 @@ func makeAlfredError(e error) *alfredError {
 }
 
 // retryable is an error that holds extra information
-// such as number of remaining attempts.
+// such as number of attempts made so far.
 type retryable struct {
-	message      string
-	hint         string
-	attemptsLeft int
+	message string
+	hint    string
+	attempt int
 }
 
 func (e *retryable) Error() string {
@@ -90,8 +90,8 @@ func (wf *GithubWorkflow) InfoEmpty(title, subtitle string) {
 
 // HandleError converts workflow errors to Alfred feedback items.
 func (wf *GithubWorkflow) HandleError(e error) {
-	if upd, ok := e.(*retryable); ok && upd.attemptsLeft > 0 {
-		wf.LaunchUpdateTask(upd.attemptsLeft)
+	if upd, ok := e.(*retryable); ok && upd.attempt < maxAttempts {
+		wf.LaunchUpdateTask(upd.attempt)
 		return
 	}
 

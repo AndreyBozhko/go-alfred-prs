@@ -22,7 +22,8 @@ import (
 
 // Workflow flags and arguments.
 var (
-	attemptsLeft      int
+	attempt           int
+	maxAttempts       int
 	cmdAuth           bool
 	cmdCheck          bool
 	cmdDisplay        bool
@@ -40,8 +41,8 @@ const (
 
 // Variables that can be set in the workflow feedback.
 const (
-	fbAttemptsLeftKey  = "GH_ATTEMPTS_LEFT"
-	fbErrorOccurredKey = "GH_ERROR_OCCURRED"
+	fbCurrentAttemptKey = "GH_CURRENT_ATTEMPT"
+	fbErrorOccurredKey  = "GH_ERROR_OCCURRED"
 )
 
 // workflowConfig holds environment variables used by the workflow.
@@ -72,8 +73,9 @@ var (
 
 // GithubWorkflow is a wrapper around aw.Workflow.
 type GithubWorkflow struct {
+	// Alfred workflow API
 	*aw.Workflow
-
+	// additional configs
 	*workflowConfig
 }
 
@@ -145,7 +147,7 @@ func (wf *GithubWorkflow) SetToken(token string) error {
 }
 
 // DisplayPRs sends the list of pull requests to Alfred as feedback items.
-func (wf *GithubWorkflow) DisplayPRs(attemptsLeft int) error {
+func (wf *GithubWorkflow) DisplayPRs(currentAttempt int) error {
 	_, err := wf.GetToken()
 	if err != nil {
 		return err
@@ -184,7 +186,7 @@ func (wf *GithubWorkflow) DisplayPRs(attemptsLeft int) error {
 		return &retryable{
 			"Could not load pull requests :(",
 			"try running ghpr-update manually",
-			attemptsLeft - 1,
+			currentAttempt,
 		}
 	}
 
@@ -314,14 +316,19 @@ func (wf *GithubWorkflow) LaunchBackgroundTask(task string, arg ...string) error
 }
 
 // LaunchUpdateTask retries 'update' task, if allowed by the attempt limit.
-func (wf *GithubWorkflow) LaunchUpdateTask(attemptsLeft int) {
+func (wf *GithubWorkflow) LaunchUpdateTask(currentAttempt int) {
+	subtitle := ""
+	if currentAttempt > 0 {
+		subtitle = fmt.Sprintf("something went wrong - retrying (attempt #%d)...", currentAttempt)
+	}
+
 	wf.NewItem("Fetching pull requests from GitHub...").
-		Subtitle(fmt.Sprintf("will retry a few times - %d attempt(s) left", attemptsLeft)).
+		Subtitle(subtitle).
 		Icon(aw.IconSync).
 		Valid(false)
 
 	wf.Rerun(rerunDelayDefault.Seconds())
-	wf.Var(fbAttemptsLeftKey, strconv.Itoa(attemptsLeft))
+	wf.Var(fbCurrentAttemptKey, strconv.Itoa(currentAttempt+1))
 
 	if err := wf.LaunchBackgroundTask("--update"); err != nil {
 		log.Println("failed to launch update task:", err)
@@ -357,7 +364,8 @@ func init() {
 	flag.BoolVar(&cmdDisplay, "display", false, "display pull requests")
 	flag.BoolVar(&cmdUpdatePRs, "update", false, "update pull requests cache")
 	flag.BoolVar(&cmdUpdatePRStatus, "update_status", false, "update PR status cache")
-	flag.IntVar(&attemptsLeft, "attempts", 0, "indicate # of remaining attempts")
+	flag.IntVar(&attempt, "attempt", 0, "indicate # of attempts so far")
+	flag.IntVar(&maxAttempts, "max_attempts", 0, "indicate # of allowed attempts")
 	flag.StringVar(&query, "query", "", "command input")
 }
 
@@ -408,7 +416,7 @@ func run() error {
 				return err
 			}
 		}
-		return workflow.DisplayPRs(attemptsLeft)
+		return workflow.DisplayPRs(attempt)
 	}
 	if cmdUpdatePRs {
 		return workflow.FetchPRs()
