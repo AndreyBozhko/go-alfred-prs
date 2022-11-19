@@ -128,8 +128,8 @@ func TestDeduplicateAndSort(t *testing.T) {
 }
 
 func TestParseReviewState(t *testing.T) {
-	review := func(upd time.Time, user, state string) github.PullRequestReview {
-		return github.PullRequestReview{
+	review := func(upd time.Time, user, state string) *github.PullRequestReview {
+		return &github.PullRequestReview{
 			User:        &github.User{Login: &user},
 			State:       &state,
 			SubmittedAt: &upd,
@@ -138,32 +138,32 @@ func TestParseReviewState(t *testing.T) {
 
 	data := []struct {
 		expected string
-		reviews  []github.PullRequestReview
+		reviews  []*github.PullRequestReview
 	}{
 		{
 			"",
-			[]github.PullRequestReview{
+			[]*github.PullRequestReview{
 				review(time.UnixMilli(1000), "user1", "COMMENTED"),
 				review(time.UnixMilli(2000), "user2", "COMMENTED"),
 			},
 		},
 		{
 			"",
-			[]github.PullRequestReview{
+			[]*github.PullRequestReview{
 				review(time.UnixMilli(1000), "user1", "APPROVED"),
 				review(time.UnixMilli(2000), "user1", "DISMISSED"),
 			},
 		},
 		{
 			"✅",
-			[]github.PullRequestReview{
+			[]*github.PullRequestReview{
 				review(time.UnixMilli(1000), "user1", "COMMENTED"),
 				review(time.UnixMilli(2000), "user2", "APPROVED"),
 			},
 		},
 		{
 			"✅✅",
-			[]github.PullRequestReview{
+			[]*github.PullRequestReview{
 				review(time.UnixMilli(1000), "user1", "APPROVED"),
 				review(time.UnixMilli(2000), "user1", "COMMENTED"),
 				review(time.UnixMilli(3000), "user2", "APPROVED"),
@@ -171,7 +171,7 @@ func TestParseReviewState(t *testing.T) {
 		},
 		{
 			"✅❌",
-			[]github.PullRequestReview{
+			[]*github.PullRequestReview{
 				review(time.UnixMilli(1000), "user1", "APPROVED"),
 				review(time.UnixMilli(2000), "user1", "DISMISSED"),
 				review(time.UnixMilli(2000), "user2", "CHANGES_REQUESTED"),
@@ -180,7 +180,7 @@ func TestParseReviewState(t *testing.T) {
 		},
 		{
 			"❌",
-			[]github.PullRequestReview{
+			[]*github.PullRequestReview{
 				review(time.UnixMilli(1000), "user1", "APPROVED"),
 				review(time.UnixMilli(2000), "user1", "COMMENTED"),
 				review(time.UnixMilli(3000), "user1", "CHANGES_REQUESTED"),

@@ -163,7 +163,7 @@ func (wf *GithubWorkflow) DisplayPRs(currentAttempt int) error {
 	for _, pr := range prs {
 
 		var reviewState string
-		var reviews []github.PullRequestReview
+		var reviews []*github.PullRequestReview
 
 		uniqueKey := strconv.FormatInt(*pr.ID, 10)
 		if err = wf.Cache.LoadJSON(uniqueKey, &reviews); err != nil {
@@ -268,7 +268,7 @@ func (wf *GithubWorkflow) FetchPRStatus() error {
 		return err
 	}
 
-	var prs []github.Issue
+	var prs []*github.Issue
 	if err = wf.Cache.LoadJSON(wfPullRequestsKey, &prs); err != nil {
 		return err
 	}

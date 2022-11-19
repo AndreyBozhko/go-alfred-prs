@@ -74,8 +74,8 @@ func deduplicateAndSort(prs []*github.Issue) []*github.Issue {
 }
 
 // parseReviewState summarizes the reviews of a pull request in a single string.
-func parseReviewState(reviews []github.PullRequestReview) string {
-	seen := make(map[string]github.PullRequestReview)
+func parseReviewState(reviews []*github.PullRequestReview) string {
+	seen := make(map[string]*github.PullRequestReview)
 	for _, item := range reviews {
 		if *item.State == "COMMENTED" {
 			continue
