@@ -66,9 +66,8 @@ var (
 
 // Common workflow errors.
 var (
-	errMissingUrl  = errors.New("github url is not set")
-	errTaskRunning = errors.New("task is already running")
-	errTokenEmpty  = errors.New("token must not be empty")
+	errMissingUrl = errors.New("github url is not set")
+	errTokenEmpty = errors.New("token must not be empty")
 )
 
 // GithubWorkflow is a wrapper around aw.Workflow.
@@ -307,10 +306,6 @@ func (wf *GithubWorkflow) FetchPRStatus() error {
 // LaunchBackgroundTask starts a workflow task in the background (if it is not running already).
 func (wf *GithubWorkflow) LaunchBackgroundTask(task string, arg ...string) error {
 	log.Printf("Launching task '%s' in background...", task)
-	if wf.IsRunning(task) {
-		return errTaskRunning
-	}
-
 	cmdArgs := append([]string{task}, arg...)
 	return wf.RunInBackground(task, exec.Command(os.Args[0], cmdArgs...))
 }
