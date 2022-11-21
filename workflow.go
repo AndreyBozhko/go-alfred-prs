@@ -319,8 +319,8 @@ func (wf *GithubWorkflow) LaunchUpdateTask(currentAttempt int) {
 
 	wf.NewItem("Fetching pull requests from GitHub...").
 		Subtitle(subtitle).
-		Icon(aw.IconSync).
-		Valid(false)
+		Valid(false).
+		Icon(aw.IconSync)
 
 	wf.Rerun(rerunDelayDefault.Seconds())
 	wf.Var(fbCurrentAttemptKey, strconv.Itoa(currentAttempt+1))

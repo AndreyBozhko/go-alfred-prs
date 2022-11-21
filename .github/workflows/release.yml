@@ -44,4 +44,5 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: dist/*.alfredworkflow
+          generate_release_notes: true
           tag_name: ${{ steps.tags.outputs.latest_tag }}

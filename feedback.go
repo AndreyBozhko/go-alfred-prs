@@ -69,6 +69,7 @@ func (wf *GithubWorkflow) FatalError(e error) {
 	wf.Feedback.Clear()
 	wf.NewItem(title).
 		Subtitle(subtitle).
+		Valid(false).
 		Icon(aw.IconError)
 	wf.SendFeedback()
 
@@ -83,6 +84,7 @@ func (wf *GithubWorkflow) InfoEmpty(title, subtitle string) {
 
 	wf.NewItem(title).
 		Subtitle(subtitle).
+		Valid(false).
 		Icon(aw.IconInfo)
 
 	wf.SendFeedback()
@@ -107,7 +109,7 @@ func (wf *GithubWorkflow) HandleError(e error) {
 
 // HandleMissingToken indicates to user that the API token is not set.
 func (wf *GithubWorkflow) HandleMissingToken() {
-	wf.NewWarningItem("No API key set", "Please use ghpr-auth to set you GitHub personal token")
+	wf.NewWarningItem("No API key configured", "Please use ghpr-auth to set your GitHub personal token")
 
 	tokenUrl := wf.GetBaseWebUrl() + "/settings/tokens/new"
 	wf.NewItem("Generate new token on GitHub").
