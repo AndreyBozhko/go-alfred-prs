@@ -7,7 +7,7 @@ on:
 
 jobs:
   release:
-    if: github.repository == 'AndreyBozhko/go-alfred-prs'
+    if: github.repository_owner == 'AndreyBozhko'
     runs-on: macos-latest
     steps:
       - name: Check out code
